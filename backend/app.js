@@ -32,7 +32,7 @@ app.use(morgan(env.nodeEnv === "production" ? "combined" : "dev"));
 
 app.use("/uploads", express.static(path.resolve(__dirname, "../uploads")));
 
-app.get("/health", (req, res) => {
+app.get("/api/health", (req, res) => {
   res.json({ success: true, message: "IndieWave API healthy" });
 });
 
