@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:5000/api";
+const API_BASE = "https://indiewave-09eu.onrender.com/api";
 const STORAGE_KEY = "indiewave_auth";
 
 const state = {
@@ -66,7 +66,7 @@ function toggleAuthUI() {
 
 function mediaUrl(path) {
   if (!path) return "";
-  return `http://localhost:5000/${path}`;
+  return `https://indiewave-09eu.onrender.com/${path}`;
 }
 
 function releaseTypeLabel(type) {
