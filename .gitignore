@@ -1,0 +1,15 @@
+node_modules/
+backend/node_modules/
+backend/.env
+.DS_Store
+Thumbs.db
+*.log
+uploads/audio/*
+uploads/video/*
+uploads/artwork/*
+uploads/profiles/*
+!uploads/audio/.gitkeep
+!uploads/video/.gitkeep
+!uploads/artwork/.gitkeep
+!uploads/profiles/.gitkeep
+.env

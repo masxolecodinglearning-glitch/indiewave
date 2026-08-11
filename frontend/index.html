@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IndieWave | African Independent Music Distribution</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700;800&family=Syne:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./css/styles.css" />
+  </head>
+  <body>
+    <div class="noise"></div>
+    <header class="topbar glass">
+      <a class="brand" href="#">IndieWave</a>
+      <nav class="topnav">
+        <a href="#discover">Discover</a>
+        <a href="#genres">Genres</a>
+        <a href="#countries">Countries</a>
+        <a href="#live">Live</a>
+      </nav>
+      <div class="top-actions">
+        <button id="openAuthBtn" class="btn btn-outline">Login / Register</button>
+        <button id="logoutBtn" class="btn btn-light hidden">Logout</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero section glass">
+        <div>
+          <p class="eyebrow">Free African Independent Distribution</p>
+          <h1>Launch Your Sound Across Africa and Beyond</h1>
+          <p class="hero-text">
+            Upload singles, EPs, albums, mixtapes, DJ mixes, videos, and live performance replays.
+            Grow with listener analytics, discovery pages, and social promotion.
+          </p>
+          <form id="searchForm" class="searchbar">
+            <input id="searchInput" type="search" placeholder="Search releases, artists, genres..." />
+            <button class="btn btn-primary" type="submit">Search</button>
+          </form>
+        </div>
+        <div class="hero-panel glass-dark">
+          <h2>Now Playing</h2>
+          <p id="nowPlayingTitle">No release selected yet</p>
+          <audio id="musicPlayer" controls class="player"></audio>
+          <video id="videoPlayer" controls class="player hidden"></video>
+        </div>
+      </section>
+
+      <section id="discover" class="section">
+        <div class="section-title-row">
+          <h2>Latest Releases</h2>
+          <button data-sort="recent" class="chip active sort-chip">Recent</button>
+          <button data-sort="trending" class="chip sort-chip">Trending</button>
+          <button data-sort="most_downloaded" class="chip sort-chip">Most Downloaded</button>
+          <button data-sort="most_viewed" class="chip sort-chip">Most Viewed</button>
+        </div>
+        <div id="releaseGrid" class="release-grid"></div>
+      </section>
+
+      <section class="section">
+        <h2>Featured Artists</h2>
+        <div id="artistGrid" class="artist-grid"></div>
+      </section>
+
+      <section class="section category-blocks">
+        <article class="glass card"><h3>Albums</h3><div id="albumsList" class="mini-list"></div></article>
+        <article class="glass card"><h3>EPs</h3><div id="epsList" class="mini-list"></div></article>
+        <article class="glass card"><h3>Singles</h3><div id="singlesList" class="mini-list"></div></article>
+        <article class="glass card"><h3>Mixtapes</h3><div id="mixtapesList" class="mini-list"></div></article>
+        <article class="glass card"><h3>DJ Mixes</h3><div id="djMixesList" class="mini-list"></div></article>
+        <article class="glass card"><h3>Videos</h3><div id="videosList" class="mini-list"></div></article>
+      </section>
+
+      <section id="genres" class="section">
+        <h2>Genre Pages</h2>
+        <div id="genreChips" class="chips-wrap"></div>
+      </section>
+
+      <section id="countries" class="section">
+        <h2>Country Pages</h2>
+        <div id="countryChips" class="chips-wrap"></div>
+      </section>
+
+      <section id="live" class="section">
+        <div class="section-title-row">
+          <h2>Live Performances</h2>
+          <button id="refreshLiveBtn" class="btn btn-outline">Refresh</button>
+        </div>
+        <div id="liveGrid" class="release-grid"></div>
+      </section>
+
+      <section id="dashboard" class="section hidden">
+        <h2>Artist Dashboard</h2>
+        <div class="dashboard-grid">
+          <form id="profileForm" class="glass form-card">
+            <h3>Update Profile</h3>
+            <input name="name" placeholder="Full Name" />
+            <input name="stage_name" placeholder="Stage Name" />
+            <input name="country" placeholder="Country" />
+            <input name="genre" placeholder="Genre" />
+            <textarea name="bio" placeholder="Artist Bio"></textarea>
+            <input name="profileImage" type="file" accept="image/png,image/jpeg,image/webp" />
+            <button type="submit" class="btn btn-primary">Save Profile</button>
+          </form>
+
+          <form id="releaseForm" class="glass form-card" enctype="multipart/form-data">
+            <h3>Upload Release</h3>
+            <input name="title" placeholder="Release Title" required />
+            <textarea name="description" placeholder="Description"></textarea>
+            <select name="type" required>
+              <option value="single">Single</option>
+              <option value="ep">EP</option>
+              <option value="album">Album</option>
+              <option value="mixtape">Mixtape</option>
+              <option value="dj_mix">DJ Mix</option>
+              <option value="video">Video</option>
+              <option value="live_performance">Live Performance</option>
+            </select>
+            <input name="genre" placeholder="Genre" required />
+            <input name="category" placeholder="Category" required />
+            <input name="country" placeholder="Country" required />
+            <label>Audio (MP3)</label>
+            <input name="audio" type="file" accept="audio/mpeg" />
+            <label>Video (MP4)</label>
+            <input name="video" type="file" accept="video/mp4" />
+            <label>Artwork</label>
+            <input name="artwork" type="file" accept="image/png,image/jpeg,image/webp" />
+            <button type="submit" class="btn btn-primary">Upload</button>
+          </form>
+
+          <form id="liveForm" class="glass form-card" enctype="multipart/form-data">
+            <h3>Schedule Live + Replay</h3>
+            <input name="title" placeholder="Live Performance Title" required />
+            <textarea name="description" placeholder="Details"></textarea>
+            <input name="scheduledAt" type="datetime-local" required />
+            <label>Replay Video (MP4 optional)</label>
+            <input name="replayVideo" type="file" accept="video/mp4" />
+            <button type="submit" class="btn btn-primary">Schedule</button>
+          </form>
+        </div>
+
+        <div>
+          <h3>My Releases</h3>
+          <div id="myReleaseGrid" class="release-grid"></div>
+        </div>
+      </section>
+
+      <section id="adminSection" class="section hidden">
+        <h2>Admin Dashboard</h2>
+        <div id="adminStats" class="stats-row"></div>
+        <div id="adminReports" class="glass card"></div>
+      </section>
+
+      <section class="section">
+        <h2>Report Content / Copyright</h2>
+        <form id="reportForm" class="glass form-inline">
+          <select name="reportType" required>
+            <option value="content">Content</option>
+            <option value="copyright">Copyright</option>
+          </select>
+          <select name="targetType" required>
+            <option value="release">Release</option>
+            <option value="artist">Artist</option>
+            <option value="comment">Comment</option>
+          </select>
+          <input name="targetId" type="number" placeholder="Target ID" required />
+          <input name="reason" placeholder="Reason" required />
+          <input name="details" placeholder="Details" />
+          <button class="btn btn-primary" type="submit">Submit Report</button>
+        </form>
+      </section>
+    </main>
+
+    <footer class="footer glass">
+      <p>© Ballout Records – IndieWave 2026</p>
+    </footer>
+
+    <dialog id="authDialog" class="glass">
+      <div class="auth-tabs">
+        <button class="chip active" data-auth-tab="login">Login</button>
+        <button class="chip" data-auth-tab="register">Register</button>
+      </div>
+
+      <form id="loginForm" class="auth-form">
+        <input name="email" type="email" placeholder="Email" required />
+        <input name="password" type="password" placeholder="Password" required />
+        <button type="submit" class="btn btn-primary">Login</button>
+      </form>
+
+      <form id="registerForm" class="auth-form hidden">
+        <input name="name" placeholder="Full Name" required />
+        <input name="stageName" placeholder="Stage Name" required />
+        <input name="country" placeholder="Country" required />
+        <input name="genre" placeholder="Genre" required />
+        <input name="email" type="email" placeholder="Email" required />
+        <input name="password" type="password" minlength="8" placeholder="Password (min 8 chars)" required />
+        <textarea name="bio" placeholder="Bio"></textarea>
+        <select name="role">
+          <option value="artist">Artist</option>
+          <option value="listener">Listener</option>
+        </select>
+        <button type="submit" class="btn btn-primary">Create Account</button>
+      </form>
+
+      <button id="closeAuthBtn" class="btn btn-outline">Close</button>
+    </dialog>
+
+    <script src="./js/app.js"></script>
+  </body>
+</html>
