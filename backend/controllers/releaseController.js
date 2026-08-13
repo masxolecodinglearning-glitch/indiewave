@@ -1,8 +1,25 @@
 const ApiError = require("../utils/apiError");
 const releaseModel = require("../models/releaseModel");
-const { toRelativePath } = require("../utils/upload");
+const r2 = require("../utils/r2");
+const { folderForFile } = require("../utils/upload");
 
 const releaseTypes = ["single", "ep", "album", "mixtape", "dj_mix", "video", "live_performance"];
+
+/**
+ * Upload a multer memory-storage file to R2 and return the stored object key.
+ * Throws ApiError(502) if the R2 upload fails, preventing a broken DB record.
+ */
+async function uploadFileToR2(file, isProfile = false) {
+  try {
+    const folder = folderForFile(file.mimetype, isProfile);
+    const key = r2.buildKey(folder, file.originalname);
+    await r2.putObject(key, file.buffer, file.mimetype);
+    return key;
+  } catch (err) {
+    console.error("R2 upload error:", err.message);
+    throw new ApiError(502, "Media upload to storage failed. Please try again.");
+  }
+}
 
 async function createRelease(req, res, next) {
   try {
@@ -29,9 +46,9 @@ async function createRelease(req, res, next) {
       genre,
       category,
       country,
-      artworkPath: artwork ? toRelativePath(artwork.path) : null,
-      mediaAudioPath: audio ? toRelativePath(audio.path) : null,
-      mediaVideoPath: video ? toRelativePath(video.path) : null,
+      artworkPath: artwork ? await uploadFileToR2(artwork) : null,
+      mediaAudioPath: audio ? await uploadFileToR2(audio) : null,
+      mediaVideoPath: video ? await uploadFileToR2(video) : null,
       scheduledAt: scheduledAt || null,
       replayAvailable: replayAvailable === "true" || replayAvailable === true
     });
@@ -51,9 +68,9 @@ async function editRelease(req, res, next) {
       if (req.body[field] !== undefined) payload[field] = req.body[field];
     });
 
-    if (req.files?.audio?.[0]) payload.media_audio_path = toRelativePath(req.files.audio[0].path);
-    if (req.files?.video?.[0]) payload.media_video_path = toRelativePath(req.files.video[0].path);
-    if (req.files?.artwork?.[0]) payload.artwork_path = toRelativePath(req.files.artwork[0].path);
+    if (req.files?.audio?.[0]) payload.media_audio_path = await uploadFileToR2(req.files.audio[0]);
+    if (req.files?.video?.[0]) payload.media_video_path = await uploadFileToR2(req.files.video[0]);
+    if (req.files?.artwork?.[0]) payload.artwork_path = await uploadFileToR2(req.files.artwork[0]);
 
     const release = await releaseModel.updateRelease(releaseId, req.user.id, payload);
     if (!release) throw new ApiError(404, "Release not found");

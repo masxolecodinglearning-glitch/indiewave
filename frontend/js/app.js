@@ -64,12 +64,17 @@ function toggleAuthUI() {
   $("adminSection").classList.toggle("hidden", !authenticated || state.user.role !== "admin");
 }
 
-function mediaUrl(path) {
-  if (!path) return "";
-  const cleanedPath = String(path)
-    .replace(/^[.\/]+/, "")
-    .replace(/\\/g, "/");
-  return new URL(cleanedPath, "https://indiewave-09eu.onrender.com/").toString();
+// Legacy paths ("uploads/..." or "../uploads/...") are served by Render express.static.
+// New R2 object keys ("audio/...", "video/...", "artwork/...", "profiles/...") are streamed
+// through the backend proxy at GET /api/media/<key>.
+function mediaUrl(filePath) {
+  if (!filePath) return "";
+  const p = String(filePath).replace(/\\/g, "/");
+  if (p.startsWith("../uploads/") || p.startsWith("uploads/")) {
+    const clean = p.replace(/^(\.\.\/)*/, "");
+    return `https://indiewave-09eu.onrender.com/${clean}`;
+  }
+  return `https://indiewave-09eu.onrender.com/api/media/${p}`;
 }
 
 function releaseTypeLabel(type) {
@@ -92,8 +97,8 @@ function renderReleaseCard(release, mine = false) {
     <article class="glass release-card">
       ${artwork}
       <h3>${escapeHtml(release.title)}</h3>
-      <p class="release-meta">${escapeHtml(release.stage_name || "Unknown Artist")} • ${escapeHtml(releaseTypeLabel(release.type))}</p>
-      <p class="release-meta">${escapeHtml(release.genre)} • ${escapeHtml(release.country)}</p>
+      <p class="release-meta">${escapeHtml(release.stage_name || "Unknown Artist")} â€¢ ${escapeHtml(releaseTypeLabel(release.type))}</p>
+      <p class="release-meta">${escapeHtml(release.genre)} â€¢ ${escapeHtml(release.country)}</p>
       <p class="release-meta">Likes: ${release.likes || 0} | Comments: ${release.comments || 0}</p>
       <p class="release-meta">Downloads: ${release.download_count || 0} | Views: ${(release.view_count || 0) + (release.video_view_count || 0)}</p>
       <div class="release-actions">
@@ -184,7 +189,7 @@ async function loadLivePerformances() {
       (item) => `
       <article class="glass release-card">
         <h3>${escapeHtml(item.title)}</h3>
-        <p class="release-meta">${escapeHtml(item.stage_name)} • ${new Date(item.scheduled_at).toLocaleString()}</p>
+        <p class="release-meta">${escapeHtml(item.stage_name)} â€¢ ${new Date(item.scheduled_at).toLocaleString()}</p>
         <p>${escapeHtml(item.description || "")}</p>
         ${item.replay_path ? `<video class="player" controls src="${mediaUrl(item.replay_path)}"></video>` : ""}
       </article>

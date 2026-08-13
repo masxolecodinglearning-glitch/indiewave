@@ -1,11 +1,21 @@
 const ApiError = require("../utils/apiError");
 const liveModel = require("../models/liveModel");
-const { toRelativePath } = require("../utils/upload");
+const r2 = require("../utils/r2");
 
 async function createLivePerformance(req, res, next) {
   try {
     const { title, description, scheduledAt } = req.body;
-    const replayPath = req.file ? toRelativePath(req.file.path) : null;
+    let replayPath = null;
+    if (req.file) {
+      try {
+        const key = r2.buildKey("video", req.file.originalname);
+        await r2.putObject(key, req.file.buffer, req.file.mimetype);
+        replayPath = key;
+      } catch (err) {
+        console.error("R2 replay upload error:", err.message);
+        throw new ApiError(502, "Replay video upload to storage failed. Please try again.");
+      }
+    }
 
     const performance = await liveModel.createPerformance({
       artistId: req.user.id,

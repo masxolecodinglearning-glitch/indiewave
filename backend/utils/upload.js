@@ -19,35 +19,9 @@ Object.values(folders).forEach((folder) => {
   }
 });
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    if (file.mimetype.startsWith("audio/")) {
-      cb(null, folders.audio);
-      return;
-    }
-
-    if (file.mimetype.startsWith("video/")) {
-      cb(null, folders.video);
-      return;
-    }
-
-    if (file.mimetype.startsWith("image/")) {
-      const isProfileUpload = req.originalUrl.includes("profile-image");
-      cb(null, isProfileUpload ? folders.profiles : folders.artwork);
-      return;
-    }
-
-    cb(new Error("Unsupported file type"));
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const safeName = file.originalname
-      .replace(ext, "")
-      .replace(/[^a-zA-Z0-9_-]/g, "-")
-      .slice(0, 50);
-    cb(null, `${Date.now()}-${safeName}${ext}`);
-  }
-});
+// Use memory storage so the buffer can be forwarded to Cloudflare R2.
+// Legacy local folders above are kept solely for express.static backward compat.
+const storage = multer.memoryStorage();
 
 const allowed = {
   "audio/mpeg": true,
@@ -71,11 +45,25 @@ const upload = multer({
   }
 });
 
+/**
+ * Determine the R2 folder for a file based on its MIME type.
+ * @param {string}  mimetype   - file MIME type
+ * @param {boolean} isProfile  - true when uploading a profile image
+ * @returns {string}  one of "audio" | "video" | "artwork" | "profiles"
+ */
+function folderForFile(mimetype, isProfile = false) {
+  if (mimetype.startsWith("audio/")) return "audio";
+  if (mimetype.startsWith("video/")) return "video";
+  if (mimetype.startsWith("image/")) return isProfile ? "profiles" : "artwork";
+  throw new Error("Unsupported file type");
+}
+
 function toRelativePath(absolutePath) {
   return path.relative(projectRoot, absolutePath).replace(/\\/g, "/");
 }
 
 module.exports = {
   upload,
-  toRelativePath
+  toRelativePath,
+  folderForFile
 };

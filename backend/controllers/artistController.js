@@ -1,7 +1,7 @@
 const ApiError = require("../utils/apiError");
 const userModel = require("../models/userModel");
 const releaseModel = require("../models/releaseModel");
-const { toRelativePath } = require("../utils/upload");
+const r2 = require("../utils/r2");
 
 async function getArtistProfile(req, res, next) {
   try {
@@ -37,8 +37,17 @@ async function uploadProfileImage(req, res, next) {
   try {
     if (!req.file) throw new ApiError(422, "Profile image is required");
 
-    const profilePath = toRelativePath(req.file.path);
-    const updated = await userModel.updateUser(req.user.id, { profile_image: profilePath });
+    let profileKey;
+    try {
+      const key = r2.buildKey("profiles", req.file.originalname);
+      await r2.putObject(key, req.file.buffer, req.file.mimetype);
+      profileKey = key;
+    } catch (err) {
+      console.error("R2 profile image upload error:", err.message);
+      throw new ApiError(502, "Profile image upload to storage failed. Please try again.");
+    }
+
+    const updated = await userModel.updateUser(req.user.id, { profile_image: profileKey });
 
     res.json({ success: true, user: updated });
   } catch (error) {
