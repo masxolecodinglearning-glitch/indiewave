@@ -66,7 +66,10 @@ function toggleAuthUI() {
 
 function mediaUrl(path) {
   if (!path) return "";
-  return `https://indiewave-09eu.onrender.com/${path}`;
+  const cleanedPath = String(path)
+    .replace(/^[.\/]+/, "")
+    .replace(/\\/g, "/");
+  return new URL(cleanedPath, "https://indiewave-09eu.onrender.com/").toString();
 }
 
 function releaseTypeLabel(type) {

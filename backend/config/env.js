@@ -38,7 +38,7 @@ module.exports = {
     expiresIn: process.env.JWT_EXPIRES_IN
   },
   upload: {
-    root: process.env.UPLOAD_ROOT || "../uploads",
+    root: process.env.UPLOAD_ROOT || "uploads",
     maxMb: Number(process.env.MAX_UPLOAD_MB || 100)
   }
 };
