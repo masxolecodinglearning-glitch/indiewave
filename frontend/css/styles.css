@@ -315,6 +315,84 @@ dialog::backdrop {
   margin-bottom: 0.8rem;
 }
 
+.ai-shell {
+  padding: 1rem;
+  display: grid;
+  gap: 0.9rem;
+}
+
+.ai-header {
+  justify-content: space-between;
+}
+
+.ai-quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.ai-tools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.8rem;
+}
+
+.ai-form {
+  padding: 0.8rem;
+}
+
+.ai-chat-wrap {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.ai-conversation {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.28);
+  border-radius: 12px;
+  padding: 0.8rem;
+  min-height: 180px;
+  max-height: 320px;
+  overflow: auto;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.ai-message {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  padding: 0.6rem;
+}
+
+.ai-message p {
+  margin: 0.4rem 0 0;
+  white-space: pre-wrap;
+}
+
+.ai-message-user {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ai-message-assistant {
+  background: rgba(255, 47, 143, 0.16);
+}
+
+.ai-chat-form {
+  margin-top: 0;
+}
+
+.ai-extra-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.btn[disabled],
+.chip[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 @keyframes reveal {
   from {
     opacity: 0;

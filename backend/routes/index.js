@@ -7,6 +7,7 @@ const engagementRoutes = require("./engagementRoutes");
 const notificationRoutes = require("./notificationRoutes");
 const liveRoutes = require("./liveRoutes");
 const adminRoutes = require("./adminRoutes");
+const aiRoutes = require("./aiRoutes");
 
 const router = express.Router();
 
@@ -18,5 +19,6 @@ router.use("/engagement", engagementRoutes);
 router.use("/notifications", notificationRoutes);
 router.use("/live", liveRoutes);
 router.use("/admin", adminRoutes);
+router.use("/ai", aiRoutes);
 
 module.exports = router;

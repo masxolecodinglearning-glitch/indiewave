@@ -93,6 +93,56 @@
         <div id="liveGrid" class="release-grid"></div>
       </section>
 
+      <section id="indieWaveAi" class="section">
+        <div class="glass ai-shell">
+          <div class="section-title-row ai-header">
+            <div>
+              <h2>IndieWave AI</h2>
+              <p class="release-meta">Your independent artist assistant</p>
+            </div>
+            <div class="ai-quick-actions">
+              <button id="aiQuickBioBtn" class="chip" type="button">Artist Bio</button>
+              <button id="aiQuickCaptionBtn" class="chip" type="button">Promote My Music</button>
+              <button id="aiQuickChatBtn" class="chip" type="button">Ask IndieWave AI</button>
+            </div>
+          </div>
+
+          <div class="ai-tools-grid">
+            <form id="aiBioForm" class="glass form-card ai-form hidden">
+              <h3>Artist Bio Generator</h3>
+              <input name="stageName" placeholder="Stage name" />
+              <input name="genre" placeholder="Genre" />
+              <input name="country" placeholder="Country" />
+              <textarea name="description" placeholder="Short artist description"></textarea>
+              <button type="submit" class="btn btn-primary">Generate Bio</button>
+            </form>
+
+            <form id="aiCaptionForm" class="glass form-card ai-form hidden">
+              <h3>Marketing Caption Generator</h3>
+              <input name="artistName" placeholder="Artist name" />
+              <input name="songTitle" placeholder="Song title" />
+              <input name="genre" placeholder="Genre" />
+              <textarea name="announcement" placeholder="Announcement details"></textarea>
+              <button type="submit" class="btn btn-primary">Generate Caption</button>
+            </form>
+          </div>
+
+          <div class="ai-chat-wrap">
+            <h3>AI Conversation</h3>
+            <div id="aiConversation" class="ai-conversation" aria-live="polite"></div>
+            <p id="aiStatus" class="release-meta"></p>
+            <form id="aiChatForm" class="searchbar ai-chat-form">
+              <input id="aiChatInput" type="text" maxlength="4000" placeholder="Ask IndieWave AI..." />
+              <button id="aiSendBtn" class="btn btn-primary" type="submit">Send</button>
+            </form>
+            <div class="ai-extra-actions">
+              <button id="aiCopyBtn" class="btn btn-outline" type="button">Copy Response</button>
+              <button id="aiRegenerateBtn" class="btn btn-outline" type="button">Regenerate</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section id="dashboard" class="section hidden">
         <h2>Artist Dashboard</h2>
         <div class="dashboard-grid">

@@ -5,7 +5,12 @@ const state = {
   token: "",
   user: null,
   sort: "recent",
-  releases: []
+  releases: [],
+  ai: {
+    loading: false,
+    lastRequest: null,
+    lastResponse: ""
+  }
 };
 
 function $(id) {
@@ -54,6 +59,129 @@ async function api(path, options = {}) {
     throw new Error(data.message || "Request failed");
   }
   return data;
+}
+
+function aiElementsReady() {
+  return Boolean($("aiConversation") && $("aiStatus") && $("aiSendBtn") && $("aiChatInput"));
+}
+
+function setAiStatus(message, isError = false) {
+  if (!$("aiStatus")) return;
+  $("aiStatus").textContent = message || "";
+  $("aiStatus").style.color = isError ? "#ff8cad" : "";
+}
+
+function setAiLoading(loading) {
+  state.ai.loading = loading;
+  if ($("aiSendBtn")) $("aiSendBtn").disabled = loading;
+  if ($("aiCopyBtn")) $("aiCopyBtn").disabled = loading;
+  if ($("aiRegenerateBtn")) $("aiRegenerateBtn").disabled = loading;
+  if ($("aiQuickBioBtn")) $("aiQuickBioBtn").disabled = loading;
+  if ($("aiQuickCaptionBtn")) $("aiQuickCaptionBtn").disabled = loading;
+  if ($("aiQuickChatBtn")) $("aiQuickChatBtn").disabled = loading;
+}
+
+function addAiMessage(role, text) {
+  if (!$("aiConversation")) return;
+
+  const item = document.createElement("article");
+  item.className = `ai-message ai-message-${role}`;
+
+  const heading = document.createElement("strong");
+  heading.textContent = role === "assistant" ? "IndieWave AI:" : "You:";
+
+  const body = document.createElement("p");
+  body.textContent = text;
+
+  item.appendChild(heading);
+  item.appendChild(body);
+  $("aiConversation").appendChild(item);
+  $("aiConversation").scrollTop = $("aiConversation").scrollHeight;
+}
+
+function ensureAiAuth() {
+  if (!state.token) {
+    throw new Error("Login required to use IndieWave AI");
+  }
+}
+
+function showAiPanel(mode) {
+  if (!$("aiBioForm") || !$("aiCaptionForm")) return;
+  $("aiBioForm").classList.toggle("hidden", mode !== "bio");
+  $("aiCaptionForm").classList.toggle("hidden", mode !== "caption");
+  if (mode === "chat" && $("aiChatInput")) {
+    $("aiChatInput").focus();
+  }
+}
+
+async function sendAiRequest(config) {
+  ensureAiAuth();
+  setAiLoading(true);
+  setAiStatus("IndieWave AI is thinking...");
+
+  try {
+    const result = await api(config.path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(config.payload)
+    });
+
+    const responseText = String(result[config.responseKey] || "").trim();
+    if (!responseText) {
+      throw new Error("AI returned an empty response");
+    }
+
+    state.ai.lastRequest = config;
+    state.ai.lastResponse = responseText;
+    setAiStatus("Response ready");
+    return responseText;
+  } finally {
+    setAiLoading(false);
+  }
+}
+
+async function runAiChat(message) {
+  const text = String(message || "").trim();
+  if (!text) throw new Error("Enter a message");
+  if (text.length > 4000) throw new Error("Message is too long");
+
+  addAiMessage("user", text);
+  const response = await sendAiRequest({
+    path: "/ai/chat",
+    payload: { message: text },
+    responseKey: "response"
+  });
+  addAiMessage("assistant", response);
+}
+
+async function runAiBio(form) {
+  const payload = Object.fromEntries(new FormData(form).entries());
+  const hasValue = Object.values(payload).some((value) => String(value || "").trim());
+  if (!hasValue) {
+    throw new Error("Add at least one bio detail");
+  }
+
+  const bio = await sendAiRequest({
+    path: "/ai/bio",
+    payload,
+    responseKey: "bio"
+  });
+  addAiMessage("assistant", `Artist Bio\n${bio}`);
+}
+
+async function runAiCaption(form) {
+  const payload = Object.fromEntries(new FormData(form).entries());
+  const hasValue = Object.values(payload).some((value) => String(value || "").trim());
+  if (!hasValue) {
+    throw new Error("Add at least one marketing detail");
+  }
+
+  const caption = await sendAiRequest({
+    path: "/ai/marketing-caption",
+    payload,
+    responseKey: "caption"
+  });
+  addAiMessage("assistant", `Marketing Caption\n${caption}`);
 }
 
 function toggleAuthUI() {
@@ -523,6 +651,72 @@ function wireEvents() {
       notify(error.message);
     }
   });
+
+  if (aiElementsReady()) {
+    $("aiQuickBioBtn").addEventListener("click", () => showAiPanel("bio"));
+    $("aiQuickCaptionBtn").addEventListener("click", () => showAiPanel("caption"));
+    $("aiQuickChatBtn").addEventListener("click", () => showAiPanel("chat"));
+
+    $("aiChatForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      try {
+        await runAiChat($("aiChatInput").value);
+        $("aiChatInput").value = "";
+      } catch (error) {
+        setAiStatus(error.message, true);
+      }
+    });
+
+    $("aiBioForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      try {
+        await runAiBio(event.target);
+      } catch (error) {
+        setAiStatus(error.message, true);
+      }
+    });
+
+    $("aiCaptionForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      try {
+        await runAiCaption(event.target);
+      } catch (error) {
+        setAiStatus(error.message, true);
+      }
+    });
+
+    $("aiCopyBtn").addEventListener("click", async () => {
+      const response = String(state.ai.lastResponse || "").trim();
+      if (!response) {
+        setAiStatus("No AI response to copy", true);
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(response);
+        setAiStatus("Response copied");
+      } catch (error) {
+        setAiStatus("Copy failed on this browser", true);
+      }
+    });
+
+    $("aiRegenerateBtn").addEventListener("click", async () => {
+      if (!state.ai.lastRequest) {
+        setAiStatus("No AI request to regenerate", true);
+        return;
+      }
+
+      try {
+        const response = await sendAiRequest(state.ai.lastRequest);
+        addAiMessage("assistant", response);
+      } catch (error) {
+        setAiStatus(error.message, true);
+      }
+    });
+
+    showAiPanel("chat");
+    addAiMessage("assistant", "How can I help you today?");
+  }
 }
 
 async function bootstrap() {
