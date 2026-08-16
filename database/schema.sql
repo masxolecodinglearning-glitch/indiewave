@@ -98,6 +98,80 @@ CREATE TABLE IF NOT EXISTS reports (
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_slug ON users(slug);
+
+-- ============================================================
+-- MARKETPLACE TABLES
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS marketplace_products (
+  id BIGSERIAL PRIMARY KEY,
+  seller_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title VARCHAR(200) NOT NULL,
+  description TEXT,
+  price NUMERIC(12,2) NOT NULL DEFAULT 0,
+  currency VARCHAR(10) NOT NULL DEFAULT 'ZAR',
+  category VARCHAR(80) NOT NULL DEFAULT 'other',
+  condition VARCHAR(30) NOT NULL DEFAULT 'new' CHECK (condition IN ('new','used','refurbished')),
+  stock_quantity INT NOT NULL DEFAULT 1,
+  image_path TEXT,
+  external_purchase_url TEXT,
+  whatsapp_contact TEXT,
+  status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active','sold_out','inactive')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS marketplace_events (
+  id BIGSERIAL PRIMARY KEY,
+  owner_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title VARCHAR(200) NOT NULL,
+  description TEXT,
+  event_date DATE NOT NULL,
+  start_time TIME,
+  end_time TIME,
+  venue_name VARCHAR(200),
+  location TEXT,
+  poster_path TEXT,
+  facebook_url TEXT,
+  tiktok_url TEXT,
+  instagram_url TEXT,
+  website_url TEXT,
+  whatsapp_url TEXT,
+  ticket_url TEXT,
+  ticket_provider VARCHAR(80),
+  ticket_price NUMERIC(12,2),
+  ticket_currency VARCHAR(10) DEFAULT 'ZAR',
+  qr_code_path TEXT,
+  status VARCHAR(20) NOT NULL DEFAULT 'upcoming' CHECK (status IN ('upcoming','live','ended','cancelled')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS marketplace_comments (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  target_type VARCHAR(20) NOT NULL CHECK (target_type IN ('product','event')),
+  target_id BIGINT NOT NULL,
+  content TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS marketplace_reactions (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  target_type VARCHAR(20) NOT NULL CHECK (target_type IN ('product','event')),
+  target_id BIGINT NOT NULL,
+  emoji VARCHAR(20) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(user_id, target_type, target_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_mp_seller ON marketplace_products(seller_id);
+CREATE INDEX IF NOT EXISTS idx_mp_status ON marketplace_products(status);
+CREATE INDEX IF NOT EXISTS idx_me_owner ON marketplace_events(owner_id);
+CREATE INDEX IF NOT EXISTS idx_me_date ON marketplace_events(event_date);
+CREATE INDEX IF NOT EXISTS idx_mc_target ON marketplace_comments(target_type, target_id);
+CREATE INDEX IF NOT EXISTS idx_mr_target ON marketplace_reactions(target_type, target_id);
 CREATE INDEX IF NOT EXISTS idx_releases_artist_id ON releases(artist_id);
 CREATE INDEX IF NOT EXISTS idx_releases_type ON releases(type);
 CREATE INDEX IF NOT EXISTS idx_releases_genre ON releases(genre);

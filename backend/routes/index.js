@@ -8,6 +8,7 @@ const notificationRoutes = require("./notificationRoutes");
 const liveRoutes = require("./liveRoutes");
 const adminRoutes = require("./adminRoutes");
 const aiRoutes = require("./aiRoutes");
+const marketplaceRoutes = require("./marketplaceRoutes");
 
 const router = express.Router();
 
@@ -20,5 +21,6 @@ router.use("/notifications", notificationRoutes);
 router.use("/live", liveRoutes);
 router.use("/admin", adminRoutes);
 router.use("/ai", aiRoutes);
+router.use("/marketplace", marketplaceRoutes);
 
 module.exports = router;

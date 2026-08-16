@@ -53,15 +53,32 @@ async function generateAiText({ systemInstruction, userPrompt, temperature = 0.7
   }
 
   const ai = getClient();
-  const response = await ai.models.generateContent({
-    model: AI_MODEL,
-    contents: prompt,
-    config: {
-      systemInstruction: instruction,
-      temperature,
-      maxOutputTokens
-    }
-  });
+  let response;
+  try {
+    response = await ai.models.generateContent({
+      model: AI_MODEL,
+      contents: prompt,
+      config: {
+        systemInstruction: instruction,
+        temperature,
+        maxOutputTokens
+      }
+    });
+  } catch (error) {
+    const providerError = error?.response?.data?.error || null;
+    console.error("[IndieWave AI] Gemini generateContent failed", {
+      model: AI_MODEL,
+      endpointCategory: "models.generateContent",
+      name: error?.name || "Error",
+      message: String(error?.message || "Unknown error"),
+      httpStatus: error?.status || error?.response?.status || null,
+      code: error?.code || null,
+      providerStatus: providerError?.status || null,
+      providerCode: providerError?.code || null,
+      providerMessage: providerError?.message || null
+    });
+    throw error;
+  }
 
   const text = extractText(response);
   if (!text) {

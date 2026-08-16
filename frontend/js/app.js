@@ -5,7 +5,11 @@ const state = {
   token: "",
   user: null,
   sort: "recent",
+  trendingSort: "trending",
   releases: [],
+  trendingReleases: [],
+  currentReleaseId: null,
+  commentsReleaseId: null,
   ai: {
     loading: false,
     lastRequest: null,
@@ -190,6 +194,12 @@ function toggleAuthUI() {
   $("openAuthBtn").classList.toggle("hidden", authenticated);
   $("dashboard").classList.toggle("hidden", !authenticated || state.user.role !== "artist");
   $("adminSection").classList.toggle("hidden", !authenticated || state.user.role !== "admin");
+
+  // Show/hide marketplace seller CTA buttons
+  const sellBtn  = $("mktSellBtn");
+  const eventBtn = $("mktEventBtn");
+  if (sellBtn)  sellBtn.classList.toggle("hidden", !authenticated);
+  if (eventBtn) eventBtn.classList.toggle("hidden", !authenticated);
 }
 
 // Legacy paths ("uploads/..." or "../uploads/...") are served by Render express.static.
@@ -263,7 +273,9 @@ async function loadReleases(filters = {}) {
   const data = await api(`/releases?${query}`);
   state.releases = data.releases;
 
-  $("releaseGrid").innerHTML = data.releases.map((release) => renderReleaseCard(release)).join("");
+  $('releaseGrid').innerHTML =
+    data.releases.map((release) => renderReleaseCard(release)).join("") ||
+    '<div class="empty-state"><p class="empty-state-title">No releases yet.</p><p class="empty-state-text">Upload your music and start building your audience on IndieWave.</p><a href="#dashboard" class="btn btn-primary empty-state-btn">Upload Your Music</a></div>';
 
   const artistsMap = new Map();
   data.releases.forEach((release) => {
@@ -276,6 +288,17 @@ async function loadReleases(filters = {}) {
   renderTaxonomy(data.releases);
 }
 
+async function loadTrendingReleases(filters = {}) {
+  const query = new URLSearchParams({ sort: state.trendingSort, ...filters }).toString();
+  const data = await api(`/releases?${query}`);
+  state.trendingReleases = data.releases;
+
+  if (!$("trendingGrid")) return;
+  $("trendingGrid").innerHTML =
+    data.releases.map((release) => renderReleaseCard(release)).join("") ||
+    '<div class="empty-state"><p class="empty-state-title">No trending releases yet.</p><p class="empty-state-text">Be the first to upload and get discovered on IndieWave.</p><a href="#dashboard" class="btn btn-primary empty-state-btn">Upload Your Music</a></div>';
+}
+
 function renderCategoryLists(releases) {
   const groups = {
     albumsList: releases.filter((r) => r.type === "album"),
@@ -286,8 +309,9 @@ function renderCategoryLists(releases) {
     videosList: releases.filter((r) => r.type === "video")
   };
 
+  const emptyHtml = '<p class="type-empty-state">No releases yet.<br><a href="#dashboard" class="type-upload-link">Upload your music</a></p>';
   Object.entries(groups).forEach(([id, list]) => {
-    $(id).innerHTML = list.slice(0, 6).map((release) => `<p>${escapeHtml(release.title)}</p>`).join("") || "<p>No releases yet</p>";
+    $(id).innerHTML = list.slice(0, 6).map((release) => `<p>${escapeHtml(release.title)}</p>`).join("") || emptyHtml;
   });
 }
 
@@ -308,6 +332,13 @@ async function loadMyDashboard() {
   if (!state.user || state.user.role !== "artist") return;
   const data = await api("/releases/dashboard/mine");
   $("myReleaseGrid").innerHTML = data.releases.map((release) => renderReleaseCard(release, true)).join("");
+  
+  // Update dashboard header with artist name
+  const artistName = state.user.stage_name || state.user.name || "Artist";
+  const dashboardNameEl = $("dashboardArtistName");
+  if (dashboardNameEl) {
+    dashboardNameEl.textContent = artistName;
+  }
 }
 
 async function loadLivePerformances() {
@@ -345,12 +376,17 @@ async function loadAdminDashboard() {
 
 async function initializeData() {
   await loadReleases();
+  await loadTrendingReleases();
   await loadLivePerformances();
   toggleAuthUI();
+  loadMarketplaceProducts();
+  loadMarketplaceEvents();
 
   if (state.token) {
     await loadMyDashboard();
     await loadAdminDashboard();
+    await loadMyMktProducts();
+    await loadMyMktEvents();
   }
 }
 
@@ -447,10 +483,12 @@ async function submitReport(form) {
 }
 
 window.playRelease = function playRelease(releaseId) {
-  const release = state.releases.find((item) => Number(item.id) === Number(releaseId));
+  let release = state.releases.find((item) => Number(item.id) === Number(releaseId));
+  if (!release) release = state.trendingReleases.find((item) => Number(item.id) === Number(releaseId));
   if (!release) return;
 
-  $("nowPlayingTitle").textContent = `${release.title} - ${release.stage_name}`;
+  state.currentReleaseId = Number(releaseId);
+  $('nowPlayingTitle').textContent = `${release.title} - ${release.stage_name}`;
 
   const hasVideo = Boolean(release.media_video_path);
   const audio = $("musicPlayer");
@@ -462,6 +500,7 @@ window.playRelease = function playRelease(releaseId) {
     video.src = mediaUrl(release.media_video_path);
     video.play().catch(() => {});
     trackView(releaseId).catch(() => {});
+    updateVisualizerState();
     return;
   }
 
@@ -470,7 +509,46 @@ window.playRelease = function playRelease(releaseId) {
   audio.src = mediaUrl(release.media_audio_path);
   audio.play().catch(() => {});
   trackListen(releaseId).catch(() => {});
+  updateVisualizerState();
 };
+
+function updateVisualizerState() {
+  const audio = $("musicPlayer");
+  const vizContainer = document.querySelector(".visualizer-container");
+  if (!vizContainer) return;
+  
+  if (audio && !audio.paused) {
+    vizContainer.parentElement.classList.add("musicPlayer--playing");
+  } else {
+    vizContainer.parentElement.classList.remove("musicPlayer--playing");
+  }
+}
+
+function showDashboardForm(formId) {
+  const forms = document.querySelectorAll(".dashboard-form");
+  forms.forEach(form => form.classList.add("hidden"));
+  const form = $(formId);
+  if (form) form.classList.remove("hidden");
+}
+
+function closeDashboardForm() {
+  const forms = document.querySelectorAll(".dashboard-form");
+  forms.forEach(form => form.classList.add("hidden"));
+}
+
+function prevTrack() {
+  if (!state.releases.length) return;
+  const idx = state.releases.findIndex((r) => Number(r.id) === state.currentReleaseId);
+  const prev = idx <= 0 ? state.releases[state.releases.length - 1] : state.releases[idx - 1];
+  if (prev) playRelease(prev.id);
+}
+
+function nextTrack() {
+  if (!state.releases.length) return;
+  const idx = state.releases.findIndex((r) => Number(r.id) === state.currentReleaseId);
+  const next = (idx === -1 || idx >= state.releases.length - 1) ? state.releases[0] : state.releases[idx + 1];
+  if (next) playRelease(next.id);
+}
 
 window.trackListen = async function trackListen(releaseId) {
   await api(`/engagement/releases/${releaseId}/listen`, { method: "POST" });
@@ -495,6 +573,7 @@ window.likeRelease = async function likeRelease(releaseId) {
   const result = await api(`/social/releases/${releaseId}/like`, { method: "POST" });
   notify(result.liked ? "Release liked" : "Like removed");
   await loadReleases();
+  await loadTrendingReleases();
 };
 
 window.followArtist = async function followArtist(artistId) {
@@ -507,23 +586,45 @@ window.followArtist = async function followArtist(artistId) {
 };
 
 window.showComments = async function showComments(releaseId) {
-  const data = await api(`/social/releases/${releaseId}/comments`);
-  const text = data.comments.length
-    ? data.comments.map((comment) => `${comment.stage_name}: ${comment.content}`).join("\n")
-    : "No comments yet";
-  const newComment = window.prompt(`Comments:\n${text}\n\nWrite a comment (optional):`, "");
-  if (!newComment) return;
-  if (!state.token) {
-    notify("Login required to comment");
+  const dialog = $("commentsDialog");
+  if (!dialog) {
+    // fallback to original prompt if dialog element is missing
+    const data = await api(`/social/releases/${releaseId}/comments`);
+    const text = data.comments.length
+      ? data.comments.map((c) => `${c.stage_name}: ${c.content}`).join("\n")
+      : "No comments yet";
+    const newComment = window.prompt(`Comments:\n${text}\n\nWrite a comment (optional):`, "");
+    if (!newComment) return;
+    if (!state.token) { notify("Login required to comment"); return; }
+    await api(`/social/releases/${releaseId}/comments`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: newComment })
+    });
+    notify("Comment added");
+    await loadReleases(); await loadTrendingReleases();
     return;
   }
-  await api(`/social/releases/${releaseId}/comments`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content: newComment })
-  });
-  notify("Comment added");
-  await loadReleases();
+
+  state.commentsReleaseId = releaseId;
+  const listContainer = $("commentsListContainer");
+  listContainer.innerHTML = '<p class="release-meta">Loading comments...</p>';
+  dialog.showModal();
+
+  try {
+    const data = await api(`/social/releases/${releaseId}/comments`);
+    if (!data.comments.length) {
+      listContainer.innerHTML = '<p class="release-meta comments-empty">No comments yet. Be the first!</p>';
+    } else {
+      listContainer.innerHTML = data.comments.map((c) => `
+        <div class="comment-item">
+          <strong class="comment-author">${escapeHtml(c.stage_name)}</strong>
+          <p class="comment-text">${escapeHtml(c.content)}</p>
+        </div>
+      `).join("");
+    }
+  } catch (e) {
+    listContainer.innerHTML = '<p class="release-meta">Could not load comments.</p>';
+  }
 };
 
 window.deleteRelease = async function deleteRelease(releaseId) {
@@ -531,15 +632,18 @@ window.deleteRelease = async function deleteRelease(releaseId) {
   await api(`/releases/${releaseId}`, { method: "DELETE" });
   notify("Release deleted");
   await loadReleases();
+  await loadTrendingReleases();
   await loadMyDashboard();
 };
 
 window.filterByGenre = async function filterByGenre(genre) {
   await loadReleases({ genre });
+  await loadTrendingReleases({ genre });
 };
 
 window.filterByCountry = async function filterByCountry(country) {
   await loadReleases({ country });
+  await loadTrendingReleases({ country });
 };
 
 window.viewArtist = async function viewArtist(slug) {
@@ -609,6 +713,7 @@ function wireEvents() {
     try {
       await uploadRelease(event.target);
       event.target.reset();
+      await loadTrendingReleases();
     } catch (error) {
       notify(error.message);
     }
@@ -628,6 +733,16 @@ function wireEvents() {
     event.preventDefault();
     const query = $("searchInput").value.trim();
     await loadReleases(query ? { q: query } : {});
+    await loadTrendingReleases(query ? { q: query } : {});
+  });
+
+  document.querySelectorAll(".trending-chip").forEach((button) => {
+    button.addEventListener("click", async () => {
+      document.querySelectorAll(".trending-chip").forEach((item) => item.classList.remove("active"));
+      button.classList.add("active");
+      state.trendingSort = button.dataset.sort;
+      await loadTrendingReleases();
+    });
   });
 
   $("refreshLiveBtn").addEventListener("click", async () => {
@@ -717,7 +832,523 @@ function wireEvents() {
     showAiPanel("chat");
     addAiMessage("assistant", "How can I help you today?");
   }
+
+  // Dashboard action buttons
+  const dashboardProfileBtn = $("dashboardProfileBtn");
+  const dashboardUploadBtn = $("dashboardUploadBtn");
+  const dashboardLiveBtn = $("dashboardLiveBtn");
+  
+  if (dashboardProfileBtn) {
+    dashboardProfileBtn.addEventListener("click", () => {
+      showDashboardForm("profileForm");
+    });
+  }
+  
+  if (dashboardUploadBtn) {
+    dashboardUploadBtn.addEventListener("click", () => {
+      showDashboardForm("releaseForm");
+    });
+  }
+  
+  if (dashboardLiveBtn) {
+    dashboardLiveBtn.addEventListener("click", () => {
+      showDashboardForm("liveForm");
+    });
+  }
+
+  // Visualizer state tracking
+  const audio = $("musicPlayer");
+  if (audio) {
+    audio.addEventListener("play", () => {
+      updateVisualizerState();
+    });
+    audio.addEventListener("pause", () => {
+      updateVisualizerState();
+    });
+  }
+
+  // Prev / Next track buttons
+  const prevBtn = $("prevTrackBtn");
+  const nextBtn = $("nextTrackBtn");
+  if (prevBtn) prevBtn.addEventListener("click", prevTrack);
+  if (nextBtn) nextBtn.addEventListener("click", nextTrack);
+
+  // Comments dialog
+  const commentsCloseBtn = $("commentsCloseBtn");
+  if (commentsCloseBtn) {
+    commentsCloseBtn.addEventListener("click", () => $("commentsDialog").close());
+  }
+
+  const commentsAddForm = $("commentsAddForm");
+  if (commentsAddForm) {
+    commentsAddForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!state.token) { notify("Login required to comment"); return; }
+      const input = $("commentsInput");
+      const content = (input ? input.value : "").trim();
+      if (!content) return;
+      try {
+        await api(`/social/releases/${state.commentsReleaseId}/comments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content })
+        });
+        if (input) input.value = "";
+        // Refresh comments in dialog
+        const data = await api(`/social/releases/${state.commentsReleaseId}/comments`);
+        const listContainer = $("commentsListContainer");
+        if (!data.comments.length) {
+          listContainer.innerHTML = '<p class="release-meta comments-empty">No comments yet. Be the first!</p>';
+        } else {
+          listContainer.innerHTML = data.comments.map((c) => `
+            <div class="comment-item">
+              <strong class="comment-author">${escapeHtml(c.stage_name)}</strong>
+              <p class="comment-text">${escapeHtml(c.content)}</p>
+            </div>
+          `).join("");
+        }
+        await loadReleases();
+        await loadTrendingReleases();
+      } catch (e) {
+        notify(e.message);
+      }
+    });
+  }
+
+  // Marketplace dashboard buttons
+  const mktProductDashBtn = $("dashboardMktProductBtn");
+  const mktEventDashBtn   = $("dashboardMktEventBtn");
+  if (mktProductDashBtn) mktProductDashBtn.addEventListener("click", () => showDashboardForm("mktProductForm"));
+  if (mktEventDashBtn)   mktEventDashBtn.addEventListener("click",   () => showDashboardForm("mktEventForm"));
+
+  // Marketplace form submissions
+  const mktProductFormEl = $("mktProductForm");
+  if (mktProductFormEl) {
+    mktProductFormEl.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try { await submitMktProduct(ev.target); } catch (e) { notify(e.message); }
+    });
+  }
+
+  const mktEventFormEl = $("mktEventForm");
+  if (mktEventFormEl) {
+    mktEventFormEl.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      try { await submitMktEvent(ev.target); } catch (e) { notify(e.message); }
+    });
+  }
+
+  // Product / event detail dialog close buttons
+  const mktPDClose = $("mktProductDialogClose");
+  const mktEDClose = $("mktEventDialogClose");
+  if (mktPDClose) mktPDClose.addEventListener("click", () => $("mktProductDialog").close());
+  if (mktEDClose) mktEDClose.addEventListener("click", () => $("mktEventDialog").close());
 }
+
+// ============================================================
+// MARKETPLACE
+// ============================================================
+
+function mktMediaUrl(path) {
+  return mediaUrl(path); // reuse existing normalizer
+}
+
+function mktFormatDate(dateStr) {
+  if (!dateStr) return "";
+  try {
+    return new Date(dateStr).toLocaleDateString("en-ZA", { weekday: "short", year: "numeric", month: "long", day: "numeric" });
+  } catch { return dateStr; }
+}
+
+function mktFormatTime(timeStr) {
+  if (!timeStr) return "";
+  return timeStr.slice(0, 5); // HH:MM
+}
+
+function mktBuildWhatsAppUrl(raw, eventTitle) {
+  if (!raw) return null;
+  const msg = encodeURIComponent(`Hi, I would like to buy tickets for ${eventTitle || "your event"}.`);
+  if (/^https?:\/\//i.test(raw)) return `${raw}?text=${msg}`;
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length >= 7) return `https://wa.me/${digits}?text=${msg}`;
+  return raw;
+}
+
+// ── Render helpers ───────────────────────────────────────────
+
+function renderMktProductCard(p) {
+  const img = p.image_path
+    ? `<img class="mkt-product-img" src="${mktMediaUrl(p.image_path)}" alt="${escapeHtml(p.title)}" loading="lazy" />`
+    : `<div class="mkt-event-poster-placeholder">🛍️</div>`;
+
+  const buyBtn = p.external_purchase_url
+    ? `<a class="btn btn-primary" href="${escapeHtml(p.external_purchase_url)}" target="_blank" rel="noopener noreferrer">Buy Now</a>`
+    : "";
+  const waBtn = p.whatsapp_contact
+    ? `<a class="btn btn-outline" href="${escapeHtml(mktBuildWhatsAppUrl(p.whatsapp_contact, p.title))}" target="_blank" rel="noopener noreferrer">Order on WhatsApp</a>`
+    : "";
+
+  return `
+    <article class="glass mkt-product-card">
+      ${img}
+      <div class="mkt-product-body">
+        <h3 style="margin:0">${escapeHtml(p.title)}</h3>
+        <p class="mkt-product-price">${escapeHtml(p.currency)} ${Number(p.price).toFixed(2)}</p>
+        <p class="mkt-product-cat">${escapeHtml(p.category)}</p>
+        <p class="mkt-product-seller">by ${escapeHtml(p.seller_name || "")}</p>
+      </div>
+      <div class="mkt-product-actions">
+        <button class="chip" onclick="mktOpenProduct(${Number(p.id)})">View</button>
+        ${buyBtn}${waBtn}
+      </div>
+    </article>`;
+}
+
+function renderMktEventCard(e) {
+  const poster = e.poster_path
+    ? `<img class="mkt-event-poster" src="${mktMediaUrl(e.poster_path)}" alt="${escapeHtml(e.title)}" loading="lazy" />`
+    : `<div class="mkt-event-poster-placeholder">🎵</div>`;
+
+  const ticketBtn = e.ticket_url
+    ? `<a class="btn btn-primary" href="${escapeHtml(e.ticket_url)}" target="_blank" rel="noopener noreferrer">Get Tickets</a>`
+    : "";
+  const waBtn = e.whatsapp_url
+    ? `<a class="btn btn-outline" href="${escapeHtml(mktBuildWhatsAppUrl(e.whatsapp_url, e.title))}" target="_blank" rel="noopener noreferrer">WhatsApp</a>`
+    : "";
+
+  return `
+    <article class="glass mkt-event-card">
+      ${poster}
+      <div class="mkt-event-body">
+        <h3 style="margin:0">${escapeHtml(e.title)}</h3>
+        <p class="mkt-event-date">📅 ${mktFormatDate(e.event_date)}${e.start_time ? " · " + mktFormatTime(e.start_time) : ""}</p>
+        <p class="mkt-event-venue">${e.venue_name ? "📍 " + escapeHtml(e.venue_name) : ""}${e.location ? " · " + escapeHtml(e.location) : ""}</p>
+        <p class="mkt-event-owner">by ${escapeHtml(e.owner_name || "")}</p>
+      </div>
+      <div class="mkt-event-actions">
+        <button class="chip" onclick="mktOpenEvent(${Number(e.id)})">Details</button>
+        ${ticketBtn}${waBtn}
+      </div>
+    </article>`;
+}
+
+function renderMktReactions(reactions, targetType, targetId) {
+  const emojis = ["❤️","😂","🔥","👍"];
+  const counts = {};
+  reactions.forEach((r) => { counts[r.emoji] = Number(r.count); });
+  return emojis.map((em) => {
+    const cnt = counts[em] || 0;
+    return `<button class="mkt-reaction-btn" onclick="mktReact('${targetType}',${targetId},'${em}',this)" title="React with ${em}">
+      ${em}<span class="mkt-reaction-count">${cnt > 0 ? cnt : ""}</span>
+    </button>`;
+  }).join("");
+}
+
+function mktFireReactionAnimation(btn, emoji) {
+  const fly = document.createElement("span");
+  fly.className = "reaction-fly";
+  fly.textContent = emoji;
+  btn.appendChild(fly);
+  fly.addEventListener("animationend", () => fly.remove());
+}
+
+function renderMktComments(comments) {
+  if (!comments.length) return '<p class="release-meta comments-empty">No comments yet. Be the first!</p>';
+  return comments.map((c) => `
+    <div class="mkt-comment-item">
+      <strong class="mkt-comment-author">${escapeHtml(c.stage_name || "User")}</strong>
+      <p class="mkt-comment-text">${escapeHtml(c.content)}</p>
+      <p class="mkt-comment-time">${new Date(c.created_at).toLocaleString()}</p>
+    </div>`).join("");
+}
+
+// ── Load functions ───────────────────────────────────────────
+
+window.loadMarketplaceProducts = async function loadMarketplaceProducts(category) {
+  const grid = $("mktProductGrid");
+  if (!grid) return;
+  grid.innerHTML = '<p class="release-meta">Loading...</p>';
+  try {
+    const qs = category ? `?category=${encodeURIComponent(category)}` : "";
+    const data = await api(`/marketplace/products${qs}`);
+    grid.innerHTML = data.products.map(renderMktProductCard).join("") ||
+      '<div class="empty-state"><p class="empty-state-title">No merchandise available yet.</p><p class="empty-state-text">Be the first to sell on IndieWave.</p></div>';
+  } catch (e) {
+    grid.innerHTML = `<p class="release-meta">Could not load products: ${escapeHtml(e.message)}</p>`;
+  }
+};
+
+window.loadMarketplaceEvents = async function loadMarketplaceEvents(status) {
+  const grid = $("mktEventGrid");
+  if (!grid) return;
+  grid.innerHTML = '<p class="release-meta">Loading...</p>';
+  try {
+    const qs = status ? `?status=${encodeURIComponent(status)}` : "";
+    const data = await api(`/marketplace/events${qs}`);
+    grid.innerHTML = data.events.map(renderMktEventCard).join("") ||
+      '<div class="empty-state"><p class="empty-state-title">No upcoming events yet.</p><p class="empty-state-text">Create your first event on IndieWave.</p></div>';
+  } catch (e) {
+    grid.innerHTML = `<p class="release-meta">Could not load events: ${escapeHtml(e.message)}</p>`;
+  }
+};
+
+window.mktShowTab = function mktShowTab(tab) {
+  const prods = $("mktProductsPane");
+  const evts  = $("mktEventsPane");
+  const tabs  = document.querySelectorAll("[data-mkt-tab]");
+  if (!prods || !evts) return;
+
+  prods.classList.toggle("hidden", tab !== "products");
+  evts.classList.toggle("hidden", tab !== "events");
+  tabs.forEach((t) => t.classList.toggle("active", t.dataset.mktTab === tab));
+
+  if (tab === "products") loadMarketplaceProducts();
+  if (tab === "events")   loadMarketplaceEvents();
+};
+
+// ── Product detail ───────────────────────────────────────────
+
+window.mktOpenProduct = async function mktOpenProduct(productId) {
+  const dialog = $("mktProductDialog");
+  const body   = $("mktProductDialogBody");
+  if (!dialog || !body) return;
+  body.innerHTML = '<p class="release-meta" style="padding:1rem">Loading...</p>';
+  dialog.showModal();
+  try {
+    const [pd, cd, rd] = await Promise.all([
+      api(`/marketplace/products/${productId}`),
+      api(`/marketplace/products/${productId}/comments`).catch(() => ({ comments: [] })),
+      api(`/marketplace/products/${productId}/reactions`).catch(() => ({ reactions: [] }))
+    ]);
+    const p = pd.product;
+    const img = p.image_path
+      ? `<img class="mkt-detail-image" src="${mktMediaUrl(p.image_path)}" alt="${escapeHtml(p.title)}" />`
+      : "";
+    const buyBtn = p.external_purchase_url
+      ? `<a class="btn btn-primary" href="${escapeHtml(p.external_purchase_url)}" target="_blank" rel="noopener noreferrer">Buy Now</a>`
+      : "";
+    const waBtn = p.whatsapp_contact
+      ? `<a class="btn btn-outline" href="${escapeHtml(mktBuildWhatsAppUrl(p.whatsapp_contact, p.title))}" target="_blank" rel="noopener noreferrer">Order on WhatsApp</a>`
+      : "";
+
+    body.innerHTML = `
+      ${img}
+      <div class="mkt-detail-body">
+        <h2 class="mkt-detail-title">${escapeHtml(p.title)}</h2>
+        <p class="mkt-detail-price">${escapeHtml(p.currency)} ${Number(p.price).toFixed(2)}</p>
+        <p class="release-meta">${escapeHtml(p.category)} · ${escapeHtml(p.condition)} · Stock: ${p.stock_quantity}</p>
+        <p class="release-meta">Sold by <strong>${escapeHtml(p.seller_name || "")}</strong></p>
+        ${p.description ? `<p style="color:var(--muted)">${escapeHtml(p.description)}</p>` : ""}
+        <div class="mkt-detail-links">${buyBtn}${waBtn}</div>
+        <div class="mkt-reactions-row" id="mktProdReactions${productId}">
+          ${renderMktReactions(rd.reactions || [], "product", productId)}
+        </div>
+        <div class="mkt-comments-section">
+          <h4 style="margin:0">Comments (${p.comment_count || 0})</h4>
+          <div class="mkt-comments-list" id="mktProdComments${productId}">${renderMktComments(cd.comments || [])}</div>
+          ${state.token ? `<form class="mkt-comment-form" onsubmit="mktPostComment(event,'product',${productId})">
+            <input type="text" maxlength="1000" placeholder="Write a comment..." required />
+            <button class="btn btn-primary" type="submit">Post</button>
+          </form>` : `<p class="release-meta">Login to comment.</p>`}
+        </div>
+      </div>`;
+  } catch (e) {
+    body.innerHTML = `<p class="release-meta" style="padding:1rem">Could not load product: ${escapeHtml(e.message)}</p>`;
+  }
+};
+
+// ── Event detail ─────────────────────────────────────────────
+
+window.mktOpenEvent = async function mktOpenEvent(eventId) {
+  const dialog = $("mktEventDialog");
+  const body   = $("mktEventDialogBody");
+  if (!dialog || !body) return;
+  body.innerHTML = '<p class="release-meta" style="padding:1rem">Loading...</p>';
+  dialog.showModal();
+  try {
+    const [ed, cd, rd] = await Promise.all([
+      api(`/marketplace/events/${eventId}`),
+      api(`/marketplace/events/${eventId}/comments`).catch(() => ({ comments: [] })),
+      api(`/marketplace/events/${eventId}/reactions`).catch(() => ({ reactions: [] }))
+    ]);
+    const e = ed.event;
+    const poster = e.poster_path
+      ? `<img class="mkt-detail-image" src="${mktMediaUrl(e.poster_path)}" alt="${escapeHtml(e.title)}" />`
+      : "";
+
+    const ticketBtn  = e.ticket_url  ? `<a class="btn btn-primary" href="${escapeHtml(e.ticket_url)}" target="_blank" rel="noopener noreferrer">Get Tickets</a>` : "";
+    const waTicket   = e.whatsapp_url ? `<a class="btn btn-outline" href="${escapeHtml(mktBuildWhatsAppUrl(e.whatsapp_url, e.title))}" target="_blank" rel="noopener noreferrer">Get Tickets on WhatsApp</a>` : "";
+    const siteBtn    = e.website_url  ? `<a class="btn btn-outline" href="${escapeHtml(e.website_url)}" target="_blank" rel="noopener noreferrer">Visit Event Site</a>` : "";
+
+    // QR: use uploaded qr_code_path if provided, otherwise generate from ticket_url or website_url via Google Charts
+    const qrTarget = e.ticket_url || e.website_url || e.whatsapp_url || null;
+    let qrSection = "";
+    if (e.qr_code_path) {
+      qrSection = `<div class="mkt-qr-wrap"><p class="release-meta">Scan for tickets:</p><img src="${mktMediaUrl(e.qr_code_path)}" alt="QR Code" class="mkt-qr-img" /></div>`;
+    } else if (qrTarget) {
+      const qrUrl = `https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=${encodeURIComponent(qrTarget)}&choe=UTF-8`;
+      qrSection = `<div class="mkt-qr-wrap"><p class="release-meta">Scan to ${e.ticket_url ? "buy tickets" : "visit event"}:</p><img src="${qrUrl}" alt="QR Code" class="mkt-qr-img" /></div>`;
+    }
+
+    const socialLinks = [
+      e.facebook_url  ? `<a href="${escapeHtml(e.facebook_url)}"  target="_blank" rel="noopener noreferrer">Facebook</a>`  : "",
+      e.tiktok_url    ? `<a href="${escapeHtml(e.tiktok_url)}"    target="_blank" rel="noopener noreferrer">TikTok</a>`    : "",
+      e.instagram_url ? `<a href="${escapeHtml(e.instagram_url)}" target="_blank" rel="noopener noreferrer">Instagram</a>` : "",
+      e.website_url   ? `<a href="${escapeHtml(e.website_url)}"   target="_blank" rel="noopener noreferrer">Website</a>`  : ""
+    ].filter(Boolean).join("");
+
+    body.innerHTML = `
+      ${poster}
+      <div class="mkt-detail-body">
+        <h2 class="mkt-detail-title">${escapeHtml(e.title)}</h2>
+        <p class="mkt-event-date">📅 ${mktFormatDate(e.event_date)}${e.start_time ? " · " + mktFormatTime(e.start_time) : ""}${e.end_time ? " – " + mktFormatTime(e.end_time) : ""}</p>
+        ${e.venue_name ? `<p class="mkt-event-venue">📍 ${escapeHtml(e.venue_name)}${e.location ? " · " + escapeHtml(e.location) : ""}</p>` : ""}
+        <p class="release-meta">Hosted by <strong>${escapeHtml(e.owner_name || "")}</strong></p>
+        ${e.description ? `<p style="color:var(--muted)">${escapeHtml(e.description)}</p>` : ""}
+        ${e.ticket_price ? `<p class="release-meta">Tickets from <strong style="color:var(--pink)">${escapeHtml(e.ticket_currency || "ZAR")} ${Number(e.ticket_price).toFixed(2)}</strong>${e.ticket_provider ? " · " + escapeHtml(e.ticket_provider) : ""}</p>` : ""}
+        <div class="mkt-detail-links">${ticketBtn}${waTicket}${siteBtn}</div>
+        ${qrSection}
+        ${socialLinks ? `<div class="mkt-social-links">${socialLinks}</div>` : ""}
+        <div class="mkt-reactions-row" id="mktEvtReactions${eventId}">
+          ${renderMktReactions(rd.reactions || [], "event", eventId)}
+        </div>
+        <div class="mkt-comments-section">
+          <h4 style="margin:0">Comments (${e.comment_count || 0})</h4>
+          <div class="mkt-comments-list" id="mktEvtComments${eventId}">${renderMktComments(cd.comments || [])}</div>
+          ${state.token ? `<form class="mkt-comment-form" onsubmit="mktPostComment(event,'event',${eventId})">
+            <input type="text" maxlength="1000" placeholder="Write a comment..." required />
+            <button class="btn btn-primary" type="submit">Post</button>
+          </form>` : `<p class="release-meta">Login to comment.</p>`}
+        </div>
+      </div>`;
+  } catch (e) {
+    body.innerHTML = `<p class="release-meta" style="padding:1rem">Could not load event: ${escapeHtml(e.message)}</p>`;
+  }
+};
+
+// ── Reactions ────────────────────────────────────────────────
+
+window.mktReact = async function mktReact(targetType, targetId, emoji, btn) {
+  if (!state.token) { notify("Login required to react"); return; }
+  try {
+    mktFireReactionAnimation(btn, emoji);
+    const result = await api(`/marketplace/${targetType}/${targetId}/reactions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ emoji })
+    });
+    // Refresh reaction counts
+    const rd = await api(`/marketplace/${targetType}/${targetId}/reactions`);
+    const container = $(`mkt${targetType === "product" ? "Prod" : "Evt"}Reactions${targetId}`);
+    if (container) container.innerHTML = renderMktReactions(rd.reactions || [], targetType, targetId);
+  } catch (e) {
+    notify(e.message);
+  }
+};
+
+// ── Comments ─────────────────────────────────────────────────
+
+window.mktPostComment = async function mktPostComment(event, targetType, targetId) {
+  event.preventDefault();
+  if (!state.token) { notify("Login required to comment"); return; }
+  const input = event.target.querySelector("input");
+  const content = (input ? input.value : "").trim();
+  if (!content) return;
+  try {
+    await api(`/marketplace/${targetType}/${targetId}/comments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content })
+    });
+    if (input) input.value = "";
+    const cd = await api(`/marketplace/${targetType}/${targetId}/comments`);
+    const listId = `mkt${targetType === "product" ? "Prod" : "Evt"}Comments${targetId}`;
+    const listEl = $(listId);
+    if (listEl) listEl.innerHTML = renderMktComments(cd.comments || []);
+  } catch (e) {
+    notify(e.message);
+  }
+};
+
+// ── Create/Manage forms ──────────────────────────────────────
+
+async function submitMktProduct(form) {
+  const data = new FormData(form);
+  const result = await api("/marketplace/products", { method: "POST", body: data });
+  notify(`Product "${result.product.title}" published!`);
+  form.reset();
+  closeDashboardForm();
+  loadMarketplaceProducts();
+}
+
+async function submitMktEvent(form) {
+  const data = new FormData(form);
+  const result = await api("/marketplace/events", { method: "POST", body: data });
+  notify(`Event "${result.event.title}" published!`);
+  form.reset();
+  closeDashboardForm();
+  loadMarketplaceEvents();
+}
+
+async function loadMyMktProducts() {
+  if (!state.user) return;
+  const grid = $("mktMyProductGrid");
+  if (!grid) return;
+  try {
+    const data = await api(`/marketplace/products?seller_id=${state.user.id}`);
+    grid.innerHTML = data.products.map((p) => `
+      <article class="glass mkt-manage-card">
+        <strong>${escapeHtml(p.title)}</strong>
+        <p class="release-meta">${escapeHtml(p.currency)} ${Number(p.price).toFixed(2)} · ${escapeHtml(p.status)}</p>
+        <div class="mkt-manage-actions">
+          <button class="chip" onclick="mktOpenProduct(${p.id})">View</button>
+          <button class="chip btn-danger" onclick="mktDeleteProduct(${p.id})">Delete</button>
+        </div>
+      </article>`).join("") || '<p class="release-meta">No products yet.</p>';
+  } catch (e) {
+    if (grid) grid.innerHTML = `<p class="release-meta">${escapeHtml(e.message)}</p>`;
+  }
+}
+
+async function loadMyMktEvents() {
+  if (!state.user) return;
+  const grid = $("mktMyEventGrid");
+  if (!grid) return;
+  try {
+    const data = await api(`/marketplace/events?owner_id=${state.user.id}`);
+    grid.innerHTML = data.events.map((e) => `
+      <article class="glass mkt-manage-card">
+        <strong>${escapeHtml(e.title)}</strong>
+        <p class="release-meta">📅 ${mktFormatDate(e.event_date)} · ${escapeHtml(e.status)}</p>
+        <div class="mkt-manage-actions">
+          <button class="chip" onclick="mktOpenEvent(${e.id})">View</button>
+          <button class="chip btn-danger" onclick="mktDeleteEvent(${e.id})">Delete</button>
+        </div>
+      </article>`).join("") || '<p class="release-meta">No events yet.</p>';
+  } catch (e) {
+    if (grid) grid.innerHTML = `<p class="release-meta">${escapeHtml(e.message)}</p>`;
+  }
+}
+
+window.mktDeleteProduct = async function mktDeleteProduct(id) {
+  if (!window.confirm("Delete this product?")) return;
+  try {
+    await api(`/marketplace/products/${id}`, { method: "DELETE" });
+    notify("Product deleted");
+    loadMyMktProducts();
+    loadMarketplaceProducts();
+  } catch (e) { notify(e.message); }
+};
+
+window.mktDeleteEvent = async function mktDeleteEvent(id) {
+  if (!window.confirm("Delete this event?")) return;
+  try {
+    await api(`/marketplace/events/${id}`, { method: "DELETE" });
+    notify("Event deleted");
+    loadMyMktEvents();
+    loadMarketplaceEvents();
+  } catch (e) { notify(e.message); }
+};
 
 async function bootstrap() {
   loadAuth();

@@ -15,12 +15,17 @@
   <body>
     <div class="noise"></div>
     <header class="topbar glass">
-      <a class="brand" href="#">IndieWave</a>
-      <nav class="topnav">
-        <a href="#discover">Discover</a>
+      <a class="brand" href="#home">IndieWave</a>
+      <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">Menu</button>
+      <nav class="topnav" id="topnavMenu">
+        <a href="#home">Home</a>
+        <a href="#discover">Music</a>
+        <a href="#artists">Artists</a>
         <a href="#genres">Genres</a>
-        <a href="#countries">Countries</a>
-        <a href="#live">Live</a>
+        <a href="#videos">Videos</a>
+        <a href="#marketplace">Marketplace</a>
+        <a href="#dashboard">Upload</a>
+        <a href="#indieWaveAi">IndieWave AI</a>
       </nav>
       <div class="top-actions">
         <button id="openAuthBtn" class="btn btn-outline">Login / Register</button>
@@ -28,69 +33,238 @@
       </div>
     </header>
 
-    <main>
+    <main id="home">
       <section class="hero section glass">
-        <div>
-          <p class="eyebrow">Free African Independent Distribution</p>
-          <h1>Launch Your Sound Across Africa and Beyond</h1>
+        <div class="hero-copy">
+          <p class="eyebrow">THE HOME OF INDEPENDENT MUSIC</p>
+          <h1>Discover African Independent Sounds Shaping Tomorrow</h1>
           <p class="hero-text">
-            Upload singles, EPs, albums, mixtapes, DJ mixes, videos, and live performance replays.
-            Grow with listener analytics, discovery pages, and social promotion.
+            Discover independent artists, new sounds and music from the next generation.
+            IndieWave helps artists release music, build audiences and grow their music business.
           </p>
+
+          <div class="hero-cta-row">
+            <a class="btn btn-primary" href="#discover">Explore Music</a>
+            <a class="btn btn-outline" href="#artists">Discover Artists</a>
+            <a class="btn btn-outline" href="#dashboard">Upload Music</a>
+          </div>
+
           <form id="searchForm" class="searchbar">
-            <input id="searchInput" type="search" placeholder="Search releases, artists, genres..." />
+            <input id="searchInput" type="search" placeholder="Search artists, songs, releases, genres..." />
             <button class="btn btn-primary" type="submit">Search</button>
           </form>
         </div>
-        <div class="hero-panel glass-dark">
+
+        <aside class="hero-panel glass-dark">
           <h2>Now Playing</h2>
           <p id="nowPlayingTitle">No release selected yet</p>
+          <div class="visualizer-container">
+            <div class="visualizer-bars">
+              <div class="bar"></div>
+              <div class="bar"></div>
+              <div class="bar"></div>
+              <div class="bar"></div>
+              <div class="bar"></div>
+              <div class="bar"></div>
+              <div class="bar"></div>
+              <div class="bar"></div>
+              <div class="bar"></div>
+              <div class="bar"></div>
+              <div class="bar"></div>
+              <div class="bar"></div>
+            </div>
+          </div>
+          <div class="player-controls-row">
+            <button id="prevTrackBtn" class="btn btn-outline player-btn" aria-label="Previous track">⏮ Prev</button>
+            <button id="nextTrackBtn" class="btn btn-outline player-btn" aria-label="Next track">Next ⏭</button>
+          </div>
           <audio id="musicPlayer" controls class="player"></audio>
           <video id="videoPlayer" controls class="player hidden"></video>
+          <p class="hero-panel-note">Select any release card below to start playback.</p>
+        </aside>
+      </section>
+
+      <section id="genres" class="section">
+        <div class="section-title-row">
+          <div>
+            <p class="section-kicker">Explore Sound</p>
+            <h2>Genre Discovery</h2>
+          </div>
+        </div>
+
+        <div class="genre-grid">
+          <article class="genre-card" style="--genre-image: url('https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg');"><h3>Hip Hop</h3></article>
+          <article class="genre-card" style="--genre-image: url('https://images.pexels.com/photos/1540406/pexels-photo-1540406.jpeg');"><h3>Amapiano</h3></article>
+          <article class="genre-card" style="--genre-image: url('https://images.pexels.com/photos/1926769/pexels-photo-1926769.jpeg');"><h3>Kasi Rap</h3></article>
+          <article class="genre-card" style="--genre-image: url('https://images.pexels.com/photos/164938/pexels-photo-164938.jpeg');"><h3>Afrobeats</h3></article>
+          <article class="genre-card" style="--genre-image: url('https://images.pexels.com/photos/4913188/pexels-photo-4913188.jpeg');"><h3>R&amp;B</h3></article>
+          <article class="genre-card" style="--genre-image: url('https://images.pexels.com/photos/167636/pexels-photo-167636.jpeg');"><h3>House</h3></article>
+          <article class="genre-card" style="--genre-image: url('https://images.pexels.com/photos/995301/pexels-photo-995301.jpeg');"><h3>Drill</h3></article>
+          <article class="genre-card" style="--genre-image: url('https://images.pexels.com/photos/210922/pexels-photo-210922.jpeg');"><h3>Trap</h3></article>
+          <article class="genre-card" style="--genre-image: url('https://images.pexels.com/photos/3756766/pexels-photo-3756766.jpeg');"><h3>Soul</h3></article>
+          <article class="genre-card" style="--genre-image: url('https://images.pexels.com/photos/3799828/pexels-photo-3799828.jpeg');"><h3>Jazz</h3></article>
+          <article class="genre-card" style="--genre-image: url('https://images.pexels.com/photos/1916826/pexels-photo-1916826.jpeg');"><h3>Gospel</h3></article>
+          <article class="genre-card" style="--genre-image: url('https://images.pexels.com/photos/5702305/pexels-photo-5702305.jpeg');"><h3>Pop</h3></article>
+        </div>
+
+        <div class="taxonomy-wrap glass">
+          <h3>Browse Live Catalog Genres</h3>
+          <div id="genreChips" class="chips-wrap"></div>
+        </div>
+      </section>
+
+      <section id="musicTypes" class="section">
+        <div class="section-title-row">
+          <div>
+            <p class="section-kicker">Explore The Catalog</p>
+            <h2>Music Formats</h2>
+          </div>
+        </div>
+        <div class="music-type-grid">
+          <article class="music-type-card">
+            <div class="type-bg"><span class="type-label">Albums</span></div>
+            <div id="albumsList" class="mini-list"></div>
+          </article>
+          <article class="music-type-card">
+            <div class="type-bg"><span class="type-label">EPs</span></div>
+            <div id="epsList" class="mini-list"></div>
+          </article>
+          <article class="music-type-card">
+            <div class="type-bg"><span class="type-label">Singles</span></div>
+            <div id="singlesList" class="mini-list"></div>
+          </article>
+          <article class="music-type-card">
+            <div class="type-bg"><span class="type-label">Mixtapes</span></div>
+            <div id="mixtapesList" class="mini-list"></div>
+          </article>
+          <article class="music-type-card">
+            <div class="type-bg"><span class="type-label">DJ Mixes</span></div>
+            <div id="djMixesList" class="mini-list"></div>
+          </article>
+          <article class="music-type-card">
+            <div class="type-bg"><span class="type-label">Videos</span></div>
+            <div id="videosList" class="mini-list"></div>
+          </article>
         </div>
       </section>
 
       <section id="discover" class="section">
         <div class="section-title-row">
-          <h2>Latest Releases</h2>
-          <button data-sort="recent" class="chip active sort-chip">Recent</button>
-          <button data-sort="trending" class="chip sort-chip">Trending</button>
-          <button data-sort="most_downloaded" class="chip sort-chip">Most Downloaded</button>
-          <button data-sort="most_viewed" class="chip sort-chip">Most Viewed</button>
+          <div>
+            <p class="section-kicker">Music Discovery</p>
+            <h2>Trending Music</h2>
+          </div>
+          <div class="chip-group">
+            <button data-sort="trending" class="chip active trending-chip">Trending</button>
+            <button data-sort="most_downloaded" class="chip trending-chip">Most Downloaded</button>
+            <button data-sort="most_viewed" class="chip trending-chip">Most Viewed</button>
+          </div>
         </div>
-        <div id="releaseGrid" class="release-grid"></div>
+        <div id="trendingGrid" class="release-grid"></div>
       </section>
 
-      <section class="section">
-        <h2>Featured Artists</h2>
+      <section id="newReleases" class="section">
+        <div class="section-title-row">
+          <div>
+            <p class="section-kicker">Fresh Drops</p>
+            <h2>New Releases</h2>
+          </div>
+          <button data-sort="recent" class="chip active sort-chip">Recent</button>
+        </div>
+        <div id="releaseGrid" class="release-grid"></div>
+        <span id="artists"></span>
+        <div class="section-title-row">
+          <div>
+            <p class="section-kicker">Artist Discovery</p>
+            <h2>Featured Artists</h2>
+          </div>
+        </div>
         <div id="artistGrid" class="artist-grid"></div>
       </section>
 
-      <section class="section category-blocks">
-        <article class="glass card"><h3>Albums</h3><div id="albumsList" class="mini-list"></div></article>
-        <article class="glass card"><h3>EPs</h3><div id="epsList" class="mini-list"></div></article>
-        <article class="glass card"><h3>Singles</h3><div id="singlesList" class="mini-list"></div></article>
-        <article class="glass card"><h3>Mixtapes</h3><div id="mixtapesList" class="mini-list"></div></article>
-        <article class="glass card"><h3>DJ Mixes</h3><div id="djMixesList" class="mini-list"></div></article>
-        <article class="glass card"><h3>Videos</h3><div id="videosList" class="mini-list"></div></article>
-      </section>
-
-      <section id="genres" class="section">
-        <h2>Genre Pages</h2>
-        <div id="genreChips" class="chips-wrap"></div>
-      </section>
-
-      <section id="countries" class="section">
-        <h2>Country Pages</h2>
-        <div id="countryChips" class="chips-wrap"></div>
-      </section>
-
-      <section id="live" class="section">
+      <section id="videos" class="section">
         <div class="section-title-row">
-          <h2>Live Performances</h2>
+          <div>
+            <p class="section-kicker">Visual Content</p>
+            <h2>Artist Videos and Live Replays</h2>
+          </div>
           <button id="refreshLiveBtn" class="btn btn-outline">Refresh</button>
         </div>
         <div id="liveGrid" class="release-grid"></div>
+      </section>
+
+      <section id="countries" class="section">
+        <div class="section-title-row">
+          <div>
+            <p class="section-kicker">Regional Discovery</p>
+            <h2>Country Pages</h2>
+          </div>
+        </div>
+        <div id="countryChips" class="chips-wrap"></div>
+      </section>
+
+      <section class="section">
+        <div class="section-title-row">
+          <div>
+            <p class="section-kicker">Future Business Features</p>
+            <h2>IndieWave Business Hub</h2>
+          </div>
+        </div>
+        <div class="future-grid">
+          <article class="glass future-card"><h3>Artist Tools</h3><p>Coming Soon</p></article>
+          <article class="glass future-card"><h3>Marketplace</h3><p>Coming Soon</p></article>
+          <article class="glass future-card"><h3>Music Licensing</h3><p>Coming Soon</p></article>
+          <article class="glass future-card"><h3>Artist Payments</h3><p>Coming Soon</p></article>
+          <article class="glass future-card"><h3>AI Tools</h3><p>Coming Soon</p></article>
+          <article class="glass future-card"><h3>Bookings</h3><p>Coming Soon</p></article>
+        </div>
+      </section>
+
+      <section id="marketplace" class="section">
+        <div class="mkt-hero glass">
+          <div class="mkt-hero-copy">
+            <p class="section-kicker">IndieWave Marketplace</p>
+            <h2>Discover Merch, Events &amp; Opportunities</h2>
+            <p class="hero-text">Shop merchandise from independent artists, discover live events and connect with the creator community.</p>
+            <div class="mkt-hero-actions">
+              <button class="btn btn-primary" onclick="mktShowTab('products')">Shop Merch</button>
+              <button class="btn btn-outline" onclick="mktShowTab('events')">Discover Events</button>
+              <button id="mktSellBtn" class="btn btn-outline hidden" onclick="showDashboardForm('mktProductForm')">Sell on IndieWave</button>
+              <button id="mktEventBtn" class="btn btn-outline hidden" onclick="showDashboardForm('mktEventForm')">Create Event</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="mkt-tabs">
+          <button class="chip active" data-mkt-tab="products" onclick="mktShowTab('products')">Merch &amp; Products</button>
+          <button class="chip" data-mkt-tab="events" onclick="mktShowTab('events')">Events</button>
+        </div>
+
+        <div id="mktProductsPane" class="mkt-pane">
+          <div class="section-title-row">
+            <div><p class="section-kicker">Latest Listings</p><h2>Merchandise &amp; Products</h2></div>
+            <div class="chip-group">
+              <button class="chip active" onclick="loadMarketplaceProducts()">All</button>
+              <button class="chip" onclick="loadMarketplaceProducts('clothing')">Clothing</button>
+              <button class="chip" onclick="loadMarketplaceProducts('music merchandise')">Music Merch</button>
+              <button class="chip" onclick="loadMarketplaceProducts('accessories')">Accessories</button>
+              <button class="chip" onclick="loadMarketplaceProducts('art')">Art</button>
+            </div>
+          </div>
+          <div id="mktProductGrid" class="release-grid"></div>
+        </div>
+
+        <div id="mktEventsPane" class="mkt-pane hidden">
+          <div class="section-title-row">
+            <div><p class="section-kicker">What&apos;s Happening</p><h2>Upcoming Events</h2></div>
+            <div class="chip-group">
+              <button class="chip active" onclick="loadMarketplaceEvents()">All</button>
+              <button class="chip" onclick="loadMarketplaceEvents('upcoming')">Upcoming</button>
+              <button class="chip" onclick="loadMarketplaceEvents('live')">Live Now</button>
+            </div>
+          </div>
+          <div id="mktEventGrid" class="mkt-event-grid"></div>
+        </div>
       </section>
 
       <section id="indieWaveAi" class="section">
@@ -144,10 +318,26 @@
       </section>
 
       <section id="dashboard" class="section hidden">
-        <h2>Artist Dashboard</h2>
-        <div class="dashboard-grid">
-          <form id="profileForm" class="glass form-card">
-            <h3>Update Profile</h3>
+        <div class="dashboard-header glass">
+          <div>
+            <p class="section-kicker">Artist Platform</p>
+            <h2 id="dashboardArtistName">Your Dashboard</h2>
+          </div>
+          <div class="dashboard-actions">
+            <button id="dashboardProfileBtn" class="btn btn-primary">Update Profile</button>
+            <button id="dashboardUploadBtn" class="btn btn-primary">Upload Release</button>
+            <button id="dashboardLiveBtn" class="btn btn-primary">Schedule Live</button>
+            <button id="dashboardMktProductBtn" class="btn btn-primary">Add Merch</button>
+            <button id="dashboardMktEventBtn" class="btn btn-primary">Create Event</button>
+          </div>
+        </div>
+
+        <div id="dashboardContent" class="dashboard-content">
+          <form id="profileForm" class="glass form-card dashboard-form hidden">
+            <div class="form-header">
+              <h3>Update Profile</h3>
+              <button type="button" class="form-close" onclick="closeDashboardForm()">✕</button>
+            </div>
             <input name="name" placeholder="Full Name" />
             <input name="stage_name" placeholder="Stage Name" />
             <input name="country" placeholder="Country" />
@@ -157,8 +347,11 @@
             <button type="submit" class="btn btn-primary">Save Profile</button>
           </form>
 
-          <form id="releaseForm" class="glass form-card" enctype="multipart/form-data">
-            <h3>Upload Release</h3>
+          <form id="releaseForm" class="glass form-card dashboard-form hidden" enctype="multipart/form-data">
+            <div class="form-header">
+              <h3>Upload Release</h3>
+              <button type="button" class="form-close" onclick="closeDashboardForm()">✕</button>
+            </div>
             <input name="title" placeholder="Release Title" required />
             <textarea name="description" placeholder="Description"></textarea>
             <select name="type" required>
@@ -182,8 +375,11 @@
             <button type="submit" class="btn btn-primary">Upload</button>
           </form>
 
-          <form id="liveForm" class="glass form-card" enctype="multipart/form-data">
-            <h3>Schedule Live + Replay</h3>
+          <form id="liveForm" class="glass form-card dashboard-form hidden" enctype="multipart/form-data">
+            <div class="form-header">
+              <h3>Schedule Live + Replay</h3>
+              <button type="button" class="form-close" onclick="closeDashboardForm()">✕</button>
+            </div>
             <input name="title" placeholder="Live Performance Title" required />
             <textarea name="description" placeholder="Details"></textarea>
             <input name="scheduledAt" type="datetime-local" required />
@@ -191,9 +387,73 @@
             <input name="replayVideo" type="file" accept="video/mp4" />
             <button type="submit" class="btn btn-primary">Schedule</button>
           </form>
+          <form id="mktProductForm" class="glass form-card dashboard-form hidden" enctype="multipart/form-data">
+            <div class="form-header">
+              <h3>Add Merchandise</h3>
+              <button type="button" class="form-close" onclick="closeDashboardForm()">✕</button>
+            </div>
+            <input name="title" placeholder="Product Name" required />
+            <textarea name="description" placeholder="Description"></textarea>
+            <input name="price" type="number" min="0" step="0.01" placeholder="Price (e.g. 350.00)" required />
+            <select name="currency"><option value="ZAR">ZAR</option><option value="USD">USD</option><option value="EUR">EUR</option></select>
+            <select name="category" required>
+              <option value="clothing">Clothing</option>
+              <option value="music merchandise">Music Merchandise</option>
+              <option value="accessories">Accessories</option>
+              <option value="posters">Posters</option>
+              <option value="art">Art</option>
+              <option value="digital merchandise">Digital Merchandise</option>
+              <option value="other">Other</option>
+            </select>
+            <select name="condition"><option value="new">New</option><option value="used">Used</option><option value="refurbished">Refurbished</option></select>
+            <input name="stock_quantity" type="number" min="1" placeholder="Stock quantity" />
+            <input name="external_purchase_url" type="url" placeholder="Shop URL (optional, https://...)" />
+            <input name="whatsapp_contact" placeholder="WhatsApp order link (optional)" />
+            <label>Product Image</label>
+            <input name="image" type="file" accept="image/png,image/jpeg,image/webp" />
+            <button type="submit" class="btn btn-primary">Publish Product</button>
+          </form>
+
+          <form id="mktEventForm" class="glass form-card dashboard-form hidden" enctype="multipart/form-data">
+            <div class="form-header">
+              <h3>Create Event</h3>
+              <button type="button" class="form-close" onclick="closeDashboardForm()">✕</button>
+            </div>
+            <input name="title" placeholder="Event Name" required />
+            <textarea name="description" placeholder="Event Description"></textarea>
+            <label>Event Date</label>
+            <input name="event_date" type="date" required />
+            <input name="start_time" type="time" placeholder="Start Time" />
+            <input name="end_time" type="time" placeholder="End Time" />
+            <input name="venue_name" placeholder="Venue Name" />
+            <input name="location" placeholder="Location / City" />
+            <input name="facebook_url" type="url" placeholder="Facebook Event URL" />
+            <input name="tiktok_url" type="url" placeholder="TikTok URL" />
+            <input name="instagram_url" type="url" placeholder="Instagram URL" />
+            <input name="website_url" type="url" placeholder="Event Website URL" />
+            <input name="whatsapp_url" placeholder="WhatsApp Link / Number" />
+            <input name="ticket_url" type="url" placeholder="Ticket Purchase URL" />
+            <input name="ticket_provider" placeholder="Ticket Provider (e.g. Quicket, Webtickets)" />
+            <input name="ticket_price" type="number" min="0" step="0.01" placeholder="Ticket Price" />
+            <select name="ticket_currency"><option value="ZAR">ZAR</option><option value="USD">USD</option><option value="EUR">EUR</option></select>
+            <select name="status"><option value="upcoming">Upcoming</option><option value="live">Live</option><option value="ended">Ended</option><option value="cancelled">Cancelled</option></select>
+            <label>Event Poster</label>
+            <input name="image" type="file" accept="image/png,image/jpeg,image/webp" />
+            <button type="submit" class="btn btn-primary">Publish Event</button>
+          </form>
+
+          <div id="mktMyProducts" class="hidden">
+            <div class="form-header"><h3>My Products</h3><button type="button" class="form-close" onclick="closeDashboardForm()">✕</button></div>
+            <div id="mktMyProductGrid" class="release-grid"></div>
+          </div>
+
+          <div id="mktMyEvents" class="hidden">
+            <div class="form-header"><h3>My Events</h3><button type="button" class="form-close" onclick="closeDashboardForm()">✕</button></div>
+            <div id="mktMyEventGrid" class="mkt-event-grid"></div>
+          </div>
         </div>
 
-        <div>
+        <div class="dashboard-releases">
           <h3>My Releases</h3>
           <div id="myReleaseGrid" class="release-grid"></div>
         </div>
@@ -223,11 +483,36 @@
           <button class="btn btn-primary" type="submit">Submit Report</button>
         </form>
       </section>
+
+      <section id="forArtists" class="section glass creator-shell">
+        <div>
+          <p class="section-kicker">IndieWave For Artists</p>
+          <h2>Build Your Career Beyond Streaming</h2>
+          <p class="hero-text">
+            Upload releases, shape your profile, engage fans, and prepare your catalog for future artist business opportunities.
+          </p>
+        </div>
+        <div class="creator-points">
+          <article class="glass card"><h3>Release Music</h3><p>Singles, projects, visuals and live replays in one artist workspace.</p></article>
+          <article class="glass card"><h3>Build Audience</h3><p>Grow with follows, likes, comments and stronger discovery visibility.</p></article>
+          <article class="glass card"><h3>Own Your Identity</h3><p>Create a professional profile with artwork, bio and artist media.</p></article>
+        </div>
+      </section>
     </main>
 
     <footer class="footer glass">
       <p>© Ballout Records – IndieWave 2026</p>
     </footer>
+
+    <dialog id="mktProductDialog" class="glass mkt-dialog">
+      <button id="mktProductDialogClose" class="form-close mkt-dialog-close">✕</button>
+      <div id="mktProductDialogBody"></div>
+    </dialog>
+
+    <dialog id="mktEventDialog" class="glass mkt-dialog">
+      <button id="mktEventDialogClose" class="form-close mkt-dialog-close">✕</button>
+      <div id="mktEventDialogBody"></div>
+    </dialog>
 
     <dialog id="authDialog" class="glass">
       <div class="auth-tabs">
@@ -259,6 +544,28 @@
       <button id="closeAuthBtn" class="btn btn-outline">Close</button>
     </dialog>
 
+    <dialog id="commentsDialog" class="glass comments-dialog">
+      <div class="form-header">
+        <h3>Comments</h3>
+        <button id="commentsCloseBtn" class="form-close">✕</button>
+      </div>
+      <div id="commentsListContainer" class="comments-list"></div>
+      <form id="commentsAddForm" class="searchbar comments-add-form">
+        <input id="commentsInput" type="text" maxlength="1000" placeholder="Write a comment... (login required)" />
+        <button class="btn btn-primary" type="submit">Post</button>
+      </form>
+    </dialog>
+
     <script src="./js/app.js"></script>
+    <script>
+      const navToggle = document.querySelector(".nav-toggle");
+      const navMenu = document.getElementById("topnavMenu");
+      if (navToggle && navMenu) {
+        navToggle.addEventListener("click", () => {
+          const open = navMenu.classList.toggle("open");
+          navToggle.setAttribute("aria-expanded", String(open));
+        });
+      }
+    </script>
   </body>
 </html>
