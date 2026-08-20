@@ -251,6 +251,138 @@ dialog {
   75% { height: 55px; opacity: 1; }
 }
 
+.upload-status {
+  margin: 0.5rem 0 0.9rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.upload-status-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.upload-status small {
+  display: block;
+  margin-top: 0.45rem;
+  color: var(--muted);
+}
+
+.upload-status-success {
+  border-color: rgba(72, 214, 146, 0.8);
+  background: rgba(72, 214, 146, 0.08);
+}
+
+.upload-status-error {
+  border-color: rgba(255, 90, 120, 0.8);
+  background: rgba(255, 90, 120, 0.08);
+}
+
+.upload-status-processing {
+  border-color: rgba(255, 149, 89, 0.8);
+  background: rgba(255, 149, 89, 0.08);
+}
+
+.upload-status-bar {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.upload-status-bar-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--pink), var(--pink-soft));
+  transition: width 0.25s ease;
+}
+
+.upload-status-bar-fill.indeterminate {
+  width: 70%;
+  animation: uploadPulse 1.1s ease-in-out infinite;
+}
+
+.upload-status-bar-fill.complete {
+  width: 100%;
+}
+
+@keyframes uploadPulse {
+  0%, 100% { transform: translateX(-10%); opacity: 0.7; }
+  50% { transform: translateX(10%); opacity: 1; }
+}
+
+.upload-toast-container {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.upload-toast {
+  position: relative;
+  width: min(360px, calc(100vw - 2rem));
+  padding: 0.9rem 1rem 0.9rem 1rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(15, 15, 18, 0.9);
+  box-shadow: var(--shadow);
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.upload-toast.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.upload-toast.is-hiding {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.upload-toast-success {
+  border-color: rgba(72, 214, 146, 0.8);
+}
+
+.upload-toast-error {
+  border-color: rgba(255, 90, 120, 0.8);
+}
+
+.upload-toast strong {
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.upload-toast p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.upload-toast-close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  border: 0;
+  background: transparent;
+  color: var(--white);
+  cursor: pointer;
+  font-size: 1rem;
+}
+
 .glass {
   border: 1px solid var(--glass-border);
   background: linear-gradient(170deg, var(--glass-bg), rgba(255, 255, 255, 0.03));

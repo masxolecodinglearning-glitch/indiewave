@@ -372,6 +372,15 @@
             <input name="video" type="file" accept="video/mp4" />
             <label>Artwork</label>
             <input name="artwork" type="file" accept="image/png,image/jpeg,image/webp" />
+            <div id="releaseUploadStatus" class="upload-status hidden" aria-live="polite" aria-atomic="true">
+              <div class="upload-status-header">
+                <span id="releaseUploadStatusText">Uploading...</span>
+              </div>
+              <div class="upload-status-bar" aria-hidden="true">
+                <span id="releaseUploadStatusBar" class="upload-status-bar-fill"></span>
+              </div>
+              <small id="releaseUploadStatusDetail">Preparing your upload...</small>
+            </div>
             <button type="submit" class="btn btn-primary">Upload</button>
           </form>
 

@@ -44,6 +44,22 @@ function extractText(response) {
   return "";
 }
 
+function buildSafeProviderDiagnostic(error) {
+  const providerError = error?.response?.data?.error || error?.error || null;
+  const errorMessage = typeof error?.message === "string" ? error.message : "Unknown error";
+
+  return {
+    model: AI_MODEL,
+    endpointCategory: "models.generateContent",
+    errorName: error?.name || "Error",
+    errorMessage,
+    httpStatus: error?.status ?? error?.response?.status ?? null,
+    providerStatus: providerError?.status ?? null,
+    providerErrorCode: providerError?.code ?? error?.code ?? null,
+    providerErrorMessage: providerError?.message ?? null
+  };
+}
+
 async function generateAiText({ systemInstruction, userPrompt, temperature = 0.7, maxOutputTokens = 700 }) {
   const prompt = cleanPrompt(userPrompt, "Prompt");
   const instruction = String(systemInstruction || "").trim();
@@ -65,18 +81,7 @@ async function generateAiText({ systemInstruction, userPrompt, temperature = 0.7
       }
     });
   } catch (error) {
-    const providerError = error?.response?.data?.error || null;
-    console.error("[IndieWave AI] Gemini generateContent failed", {
-      model: AI_MODEL,
-      endpointCategory: "models.generateContent",
-      name: error?.name || "Error",
-      message: String(error?.message || "Unknown error"),
-      httpStatus: error?.status || error?.response?.status || null,
-      code: error?.code || null,
-      providerStatus: providerError?.status || null,
-      providerCode: providerError?.code || null,
-      providerMessage: providerError?.message || null
-    });
+    console.error("[IndieWave AI] Gemini generateContent failed", buildSafeProviderDiagnostic(error));
     throw error;
   }
 

@@ -33,6 +33,68 @@ function notify(message) {
   window.alert(message);
 }
 
+function setUploadStatus(statusText, detail = "") {
+  const status = $("releaseUploadStatus");
+  const statusTextEl = $("releaseUploadStatusText");
+  const statusBar = $("releaseUploadStatusBar");
+  const statusDetail = $("releaseUploadStatusDetail");
+
+  if (!status || !statusTextEl || !statusBar || !statusDetail) return;
+
+  status.classList.remove("hidden");
+  statusTextEl.textContent = statusText;
+  statusDetail.textContent = detail || "";
+
+  const isUpload = statusText === "Uploading...";
+  const isProcessing = statusText === "Processing...";
+  const isComplete = statusText === "Completed";
+  const isFailed = statusText === "Failed";
+
+  status.classList.toggle("upload-status-success", isComplete);
+  status.classList.toggle("upload-status-error", isFailed);
+  status.classList.toggle("upload-status-processing", isProcessing);
+  statusBar.classList.toggle("indeterminate", isUpload || isProcessing);
+  statusBar.classList.toggle("complete", isComplete || isFailed);
+
+  if (isUpload || isProcessing) {
+    statusBar.style.width = "70%";
+    return;
+  }
+
+  statusBar.style.width = "100%";
+}
+
+function showUploadNotification(kind, title, message) {
+  const container = document.getElementById("uploadToastContainer") || document.createElement("div");
+  container.id = "uploadToastContainer";
+  container.className = "upload-toast-container";
+  if (!container.parentNode) {
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement("div");
+  toast.className = `upload-toast upload-toast-${kind}`;
+  toast.innerHTML = `
+    <button type="button" class="upload-toast-close" aria-label="Close notification">✕</button>
+    <strong>${escapeHtml(title)}</strong>
+    <p>${escapeHtml(message)}</p>
+  `;
+
+  const closeButton = toast.querySelector(".upload-toast-close");
+  closeButton.addEventListener("click", () => {
+    toast.classList.add("is-hiding");
+    setTimeout(() => toast.remove(), 220);
+  });
+
+  container.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add("is-visible"));
+
+  setTimeout(() => {
+    toast.classList.add("is-hiding");
+    setTimeout(() => toast.remove(), 220);
+  }, 4200);
+}
+
 function saveAuth() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ token: state.token, user: state.user }));
 }
@@ -447,13 +509,36 @@ async function updateProfile(form) {
 
 async function uploadRelease(form) {
   const data = new FormData(form);
-  const response = await api("/releases", {
-    method: "POST",
-    body: data
-  });
-  notify(`Uploaded: ${response.release.title}`);
-  await loadReleases();
-  await loadMyDashboard();
+  setUploadStatus("Uploading...", "Uploading your media...");
+
+  try {
+    const response = await api("/releases", {
+      method: "POST",
+      body: data
+    });
+
+    setUploadStatus("Processing...", "Processing your upload...");
+    setUploadStatus("Completed", "Upload complete");
+    showUploadNotification(
+      "success",
+      "✓ Upload complete",
+      response?.release?.title ? `Your release “${response.release.title}” has been uploaded successfully.` : "Your upload has been completed successfully."
+    );
+
+    await loadReleases();
+    await loadMyDashboard();
+    form.reset();
+    return response;
+  } catch (error) {
+    console.error("Upload release failed:", error);
+    const safeMessage = typeof error?.message === "string" && !/(credential|secret|stack trace|database|r2|internal|path|server)/i.test(error.message)
+      ? error.message
+      : "Please try again.";
+
+    setUploadStatus("Failed", safeMessage);
+    showUploadNotification("error", "✕ Upload failed", safeMessage);
+    return null;
+  }
 }
 
 async function scheduleLive(form) {
@@ -710,12 +795,9 @@ function wireEvents() {
 
   $("releaseForm").addEventListener("submit", async (event) => {
     event.preventDefault();
-    try {
-      await uploadRelease(event.target);
-      event.target.reset();
+    const uploadResult = await uploadRelease(event.target);
+    if (uploadResult) {
       await loadTrendingReleases();
-    } catch (error) {
-      notify(error.message);
     }
   });
 
