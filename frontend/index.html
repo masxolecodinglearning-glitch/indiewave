@@ -28,6 +28,10 @@
         <a href="#indieWaveAi">IndieWave AI</a>
       </nav>
       <div class="top-actions">
+        <button id="notificationsBtn" class="btn btn-outline hidden" type="button">
+          Notifications
+          <span id="notificationCount" class="notification-count hidden">0</span>
+        </button>
         <button id="openAuthBtn" class="btn btn-outline">Login / Register</button>
         <button id="logoutBtn" class="btn btn-light hidden">Logout</button>
       </div>
@@ -210,13 +214,33 @@
             <h2>IndieWave Business Hub</h2>
           </div>
         </div>
-        <div class="future-grid">
-          <article class="glass future-card"><h3>Artist Tools</h3><p>Coming Soon</p></article>
-          <article class="glass future-card"><h3>Marketplace</h3><p>Coming Soon</p></article>
-          <article class="glass future-card"><h3>Music Licensing</h3><p>Coming Soon</p></article>
-          <article class="glass future-card"><h3>Artist Payments</h3><p>Coming Soon</p></article>
-          <article class="glass future-card"><h3>AI Tools</h3><p>Coming Soon</p></article>
-          <article class="glass future-card"><h3>Bookings</h3><p>Coming Soon</p></article>
+      </section>
+
+      <section id="messages" class="section">
+        <div class="section-title-row">
+          <div>
+            <p class="section-kicker">Direct Messages</p>
+            <h2>Messages</h2>
+          </div>
+        </div>
+        <div id="messagesPanel" class="messages-panel glass hidden">
+          <aside id="conversationList" class="conversation-list"></aside>
+          <div class="conversation-window">
+            <div class="conversation-header">
+              <strong id="conversationTitle">Select a conversation</strong>
+            </div>
+            <div id="messagesList" class="messages-list"></div>
+            <form id="messageForm" class="message-form">
+              <input id="messageInput" type="text" maxlength="2000" placeholder="Type a message..." />
+              <button class="btn btn-primary" type="submit">Send</button>
+            </form>
+          </div>
+        </div>
+        <div id="notificationsPanel" class="notifications-panel glass hidden" aria-live="polite">
+          <div class="conversation-header">
+            <strong>Notifications</strong>
+          </div>
+          <div id="notificationList" class="notification-list"></div>
         </div>
       </section>
 

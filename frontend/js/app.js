@@ -10,6 +10,9 @@ const state = {
   trendingReleases: [],
   currentReleaseId: null,
   commentsReleaseId: null,
+  activeConversationId: null,
+  activeConversationUser: null,
+  conversations: [],
   ai: {
     loading: false,
     lastRequest: null,
@@ -254,6 +257,7 @@ function toggleAuthUI() {
   const authenticated = Boolean(state.token && state.user);
   $("logoutBtn").classList.toggle("hidden", !authenticated);
   $("openAuthBtn").classList.toggle("hidden", authenticated);
+  $("notificationsBtn").classList.toggle("hidden", !authenticated);
   $("dashboard").classList.toggle("hidden", !authenticated || state.user.role !== "artist");
   $("adminSection").classList.toggle("hidden", !authenticated || state.user.role !== "admin");
 
@@ -308,6 +312,7 @@ function renderReleaseCard(release, mine = false) {
         <button class="chip" onclick="downloadRelease(${releaseId})">Download</button>
         <button class="chip" onclick="likeRelease(${releaseId})">Like</button>
         <button class="chip" onclick="showComments(${releaseId})">Comments</button>
+        ${state.user && Number(release.artist_id) !== Number(state.user.id) ? `<button class="chip" onclick="openConversation(${release.artist_id})">Message</button>` : ""}
         ${state.user ? `<button class="chip" onclick="openReportForRelease(${releaseId})">Report</button>` : ""}
         ${mine ? `<button class=\"chip\" onclick=\"deleteRelease(${releaseId})\">Delete</button>` : ""}
       </div>
@@ -324,6 +329,7 @@ function renderArtistCard(artist) {
       <p class="release-meta">${escapeHtml(artist.genre || "")}</p>
       <div class="release-actions">
         <button class="chip" onclick="viewArtist('${escapeHtml(artist.artist_slug || artist.slug || "")}')">Profile</button>
+        ${state.user && Number(artist.artist_id || artist.id) !== Number(state.user.id) ? `<button class="chip" onclick="openConversation(${artist.artist_id || artist.id})">Message</button>` : ""}
         ${state.user ? `<button class=\"chip\" onclick=\"followArtist(${artist.artist_id || artist.id})\">Follow</button>` : ""}
       </div>
     </article>
@@ -449,6 +455,8 @@ async function initializeData() {
     await loadAdminDashboard();
     await loadMyMktProducts();
     await loadMyMktEvents();
+    await loadConversations();
+    await loadNotifications();
   }
 }
 
@@ -466,6 +474,8 @@ async function register(form) {
   $("authDialog").close();
   notify("Registration successful");
   await loadMyDashboard();
+  await loadConversations();
+  await loadNotifications();
 }
 
 async function login(form) {
@@ -483,6 +493,8 @@ async function login(form) {
   notify("Login successful");
   await loadMyDashboard();
   await loadAdminDashboard();
+  await loadConversations();
+  await loadNotifications();
 }
 
 async function updateProfile(form) {
@@ -643,6 +655,150 @@ window.trackView = async function trackView(releaseId) {
   await api(`/engagement/releases/${releaseId}/view`, { method: "POST" });
 };
 
+async function loadConversations() {
+  if (!state.token || !$("conversationList")) return;
+
+  try {
+    const data = await api("/messages/conversations");
+    state.conversations = data.conversations || [];
+    const list = $("conversationList");
+    if (!state.conversations.length) {
+      list.innerHTML = '<p class="release-meta">No conversations yet.</p>';
+      return;
+    }
+
+    list.innerHTML = state.conversations.map((conversation) => {
+      const name = conversation.other_user?.stage_name || "User";
+      const snippet = conversation.last_message ? escapeHtml(conversation.last_message) : "No messages yet";
+      const unread = conversation.unread_count > 0 ? `<span class="message-unread-badge">${conversation.unread_count}</span>` : "";
+      const active = Number(conversation.id) === Number(state.activeConversationId) ? " active" : "";
+      return `
+        <button class="conversation-item${active}" type="button" data-conversation-id="${conversation.id}" data-user-id="${conversation.other_user?.id || ""}" onclick="openConversation(${conversation.other_user?.id || 0})">
+          <div class="conversation-meta">
+            <strong>${escapeHtml(name)}</strong>
+            ${unread}
+          </div>
+          <small>${snippet}</small>
+        </button>
+      `;
+    }).join("");
+
+    if (!state.activeConversationId && state.conversations[0]) {
+      const first = state.conversations[0];
+      await openConversation(first.other_user?.id || 0);
+    }
+  } catch (error) {
+    if ($("conversationList")) $("conversationList").innerHTML = '<p class="release-meta">Could not load messages.</p>';
+  }
+}
+
+async function loadNotifications() {
+  if (!state.token) return;
+
+  try {
+    const data = await api("/notifications");
+    const notifications = data.notifications || [];
+    const countEl = $("notificationCount");
+    const listEl = $("notificationList");
+    const unreadCount = notifications.filter((item) => !item.is_read).length;
+
+    if (countEl) {
+      countEl.textContent = unreadCount;
+      countEl.classList.toggle("hidden", unreadCount === 0);
+    }
+
+    if (!listEl) return;
+    if (!notifications.length) {
+      listEl.innerHTML = '<p class="release-meta">No notifications yet.</p>';
+      return;
+    }
+
+    listEl.innerHTML = notifications.map((notification) => {
+      const unread = notification.is_read ? "" : " unread";
+      const onClick = notification.related_id ? `onclick="handleNotificationClick(${notification.id}, ${notification.related_id})"` : "";
+      return `
+        <button class="notification-item${unread}" type="button" ${onClick}>
+          <strong>${escapeHtml(notification.type || "Update")}</strong>
+          <span>${escapeHtml(notification.message)}</span>
+          <small>${new Date(notification.created_at).toLocaleString()}</small>
+        </button>
+      `;
+    }).join("");
+  } catch (error) {
+    if ($("notificationList")) $("notificationList").innerHTML = '<p class="release-meta">Could not load notifications.</p>';
+  }
+}
+
+window.handleNotificationClick = async function handleNotificationClick(notificationId, conversationId) {
+  try {
+    await api(`/notifications/${notificationId}/read`, { method: "PATCH" });
+    const panel = $("notificationsPanel");
+    if (panel) panel.classList.add("hidden");
+
+    if (conversationId) {
+      const match = (state.conversations || []).find((conversation) => Number(conversation.id) === Number(conversationId));
+      if (match && match.other_user?.id) {
+        await openConversation(match.other_user.id);
+        return;
+      }
+    }
+
+    await loadNotifications();
+  } catch (error) {
+    notify(error.message);
+  }
+};
+
+async function openConversation(userId) {
+  if (!state.token || !userId) return;
+
+  try {
+    const result = await api(`/messages/conversations/${userId}`, { method: "POST" });
+    state.activeConversationId = Number(result.conversation.id);
+    state.activeConversationUser = result.otherUser || null;
+
+    const panel = $("messagesPanel");
+    if (panel) panel.classList.remove("hidden");
+
+    const title = $("conversationTitle");
+    if (title) title.textContent = state.activeConversationUser?.stage_name || "Conversation";
+
+    await loadConversationMessages();
+    await loadConversations();
+  } catch (error) {
+    notify(error.message);
+  }
+}
+
+async function loadConversationMessages() {
+  if (!state.activeConversationId || !state.token) return;
+
+  try {
+    const data = await api(`/messages/conversations/${state.activeConversationId}/messages`);
+    const list = $("messagesList");
+    if (!list) return;
+
+    if (!data.messages.length) {
+      list.innerHTML = '<p class="release-meta">No messages yet.</p>';
+      return;
+    }
+
+    list.innerHTML = data.messages.map((message) => {
+      const mine = Number(message.sender_id) === Number(state.user.id);
+      return `
+        <div class="message-bubble ${mine ? "self" : "other"}">
+          <p>${escapeHtml(message.message)}</p>
+          <small>${new Date(message.created_at).toLocaleString()}</small>
+        </div>
+      `;
+    }).join("");
+
+    list.scrollTop = list.scrollHeight;
+  } catch (error) {
+    if ($("messagesList")) $("messagesList").innerHTML = '<p class="release-meta">Could not load messages.</p>';
+  }
+}
+
 window.downloadRelease = async function downloadRelease(releaseId) {
   const result = await api(`/engagement/releases/${releaseId}/download`, { method: "POST" });
   if (result.filePath) {
@@ -751,8 +907,12 @@ function wireEvents() {
   $("logoutBtn").addEventListener("click", () => {
     state.token = "";
     state.user = null;
+    state.activeConversationId = null;
+    state.conversations = [];
     saveAuth();
     toggleAuthUI();
+    const panel = $("notificationsPanel");
+    if (panel) panel.classList.add("hidden");
     notify("Logged out");
   });
 
@@ -976,7 +1136,6 @@ function wireEvents() {
           body: JSON.stringify({ content })
         });
         if (input) input.value = "";
-        // Refresh comments in dialog
         const data = await api(`/social/releases/${state.commentsReleaseId}/comments`);
         const listContainer = $("commentsListContainer");
         if (!data.comments.length) {
@@ -993,6 +1152,43 @@ function wireEvents() {
         await loadTrendingReleases();
       } catch (e) {
         notify(e.message);
+      }
+    });
+  }
+
+  const messageForm = $("messageForm");
+  if (messageForm) {
+    messageForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!state.token || !state.activeConversationId) return;
+      const input = $("messageInput");
+      const content = (input ? input.value : "").trim();
+      if (!content) return;
+
+      try {
+        await api(`/messages/conversations/${state.activeConversationId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: content })
+        });
+        if (input) input.value = "";
+        await loadConversationMessages();
+        await loadConversations();
+        await loadNotifications();
+      } catch (error) {
+        notify(error.message);
+      }
+    });
+  }
+
+  const notificationsBtn = $("notificationsBtn");
+  if (notificationsBtn) {
+    notificationsBtn.addEventListener("click", () => {
+      const panel = $("notificationsPanel");
+      if (!panel) return;
+      panel.classList.toggle("hidden");
+      if (!panel.classList.contains("hidden")) {
+        loadNotifications();
       }
     });
   }
