@@ -726,6 +726,11 @@ textarea::placeholder {
   color: var(--pink);
 }
 
+.dashboard-management-stack {
+  display: grid;
+  gap: 1rem;
+}
+
 .dashboard-releases {
   margin-top: 2rem;
 }
