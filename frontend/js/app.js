@@ -256,12 +256,19 @@ async function runAiCaption(form) {
 
 function toggleAuthUI() {
   const authenticated = Boolean(state.token && state.user);
+  const isArtist = state.user?.role === "artist";
+  const isAdmin = state.user?.role === "admin";
+
   $("logoutBtn").classList.toggle("hidden", !authenticated);
   $("openAuthBtn").classList.toggle("hidden", authenticated);
   $("messagesBtn").classList.toggle("hidden", !authenticated);
   $("notificationsBtn").classList.toggle("hidden", !authenticated);
-  $("dashboard").classList.toggle("hidden", !authenticated || state.user.role !== "artist");
-  $("adminSection").classList.toggle("hidden", !authenticated || state.user.role !== "admin");
+
+  const dashboardBtn = $("dashboardBtn");
+  if (dashboardBtn) dashboardBtn.classList.toggle("hidden", !authenticated || !isArtist);
+
+  $("dashboard").classList.toggle("hidden", !authenticated || !isArtist);
+  $("adminSection").classList.toggle("hidden", !authenticated || !isAdmin);
 
   const messagesSection = $("messages");
   if (messagesSection) messagesSection.classList.toggle("hidden", !authenticated);
@@ -283,8 +290,8 @@ function toggleAuthUI() {
 
   const myProductsPanel = $("mktMyProducts");
   const myEventsPanel = $("mktMyEvents");
-  if (myProductsPanel) myProductsPanel.classList.toggle("hidden", !authenticated || state.user.role !== "artist");
-  if (myEventsPanel) myEventsPanel.classList.toggle("hidden", !authenticated || state.user.role !== "artist");
+  if (myProductsPanel) myProductsPanel.classList.toggle("hidden", !authenticated || !isArtist);
+  if (myEventsPanel) myEventsPanel.classList.toggle("hidden", !authenticated || !isArtist);
 }
 
 // Legacy paths ("uploads/..." or "../uploads/...") are served by Render express.static.
@@ -1205,10 +1212,27 @@ function wireEvents() {
       const panel = $("messagesPanel");
       if (section) section.classList.remove("hidden");
       if (panel) {
-        panel.classList.toggle("hidden");
+        const isHidden = panel.classList.contains("hidden");
+        panel.classList.toggle("hidden", !isHidden);
         if (!panel.classList.contains("hidden")) {
           await loadConversations();
         }
+      }
+    });
+  }
+
+  const dashboardBtn = $("dashboardBtn");
+  if (dashboardBtn) {
+    dashboardBtn.addEventListener("click", () => {
+      const section = $("dashboard");
+      const panel = $("messagesPanel");
+      const notificationsPanel = $("notificationsPanel");
+      closeDashboardForm();
+      if (panel) panel.classList.add("hidden");
+      if (notificationsPanel) notificationsPanel.classList.add("hidden");
+      if (section) {
+        section.classList.remove("hidden");
+        section.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     });
   }
