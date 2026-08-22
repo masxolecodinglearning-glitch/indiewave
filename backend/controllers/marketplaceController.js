@@ -95,12 +95,22 @@ async function deleteProduct(req, res, next) {
 async function listEvents(req, res, next) {
   try {
     const { status, owner_id, limit, offset } = req.query;
+    const requestedOwnerId = owner_id ? Number(owner_id) : null;
+    const safeOwnerId = req.user && requestedOwnerId && Number(req.user.id) === requestedOwnerId ? requestedOwnerId : null;
+
     const events = await mkt.listEvents({
       status: status || null,
-      ownerId: owner_id ? Number(owner_id) : null,
+      ownerId: safeOwnerId,
       limit: Math.min(Number(limit) || 50, 100),
       offset: Number(offset) || 0
     });
+    res.json({ success: true, events });
+  } catch (err) { next(err); }
+}
+
+async function listMyEvents(req, res, next) {
+  try {
+    const events = await mkt.listEvents({ ownerId: req.user.id });
     res.json({ success: true, events });
   } catch (err) { next(err); }
 }
@@ -150,21 +160,34 @@ async function createEvent(req, res, next) {
 async function updateEvent(req, res, next) {
   try {
     const id = Number(req.params.id);
+    const current = await mkt.getEventById(id);
+    if (!current) throw new ApiError(404, "Event not found");
+    if (Number(current.owner_id) !== Number(req.user.id)) {
+      throw new ApiError(403, "You are not allowed to edit this event");
+    }
+
     const allowed = ["title","description","event_date","start_time","end_time","venue_name","location","facebook_url","tiktok_url","instagram_url","website_url","whatsapp_url","ticket_url","ticket_provider","ticket_price","ticket_currency","status"];
     const fields = {};
     allowed.forEach((f) => { if (req.body[f] !== undefined) fields[f] = req.body[f]; });
     if (req.file) fields.poster_path = await uploadImageToR2(req.file);
 
     const event = await mkt.updateEvent(id, req.user.id, fields);
-    if (!event) throw new ApiError(404, "Event not found or not owned by you");
+    if (!event) throw new ApiError(404, "Event not found");
     res.json({ success: true, event });
   } catch (err) { next(err); }
 }
 
 async function deleteEvent(req, res, next) {
   try {
-    const deleted = await mkt.deleteEvent(Number(req.params.id), req.user.id);
-    if (!deleted) throw new ApiError(404, "Event not found or not owned by you");
+    const id = Number(req.params.id);
+    const current = await mkt.getEventById(id);
+    if (!current) throw new ApiError(404, "Event not found");
+    if (Number(current.owner_id) !== Number(req.user.id)) {
+      throw new ApiError(403, "You are not allowed to delete this event");
+    }
+
+    const deleted = await mkt.deleteEvent(id, req.user.id);
+    if (!deleted) throw new ApiError(404, "Event not found");
     res.json({ success: true, message: "Event deleted" });
   } catch (err) { next(err); }
 }
@@ -217,6 +240,6 @@ async function react(req, res, next) {
 
 module.exports = {
   listProducts, getProduct, createProduct, updateProduct, deleteProduct,
-  listEvents, getEvent, createEvent, updateEvent, deleteEvent,
+  listEvents, listMyEvents, getEvent, createEvent, updateEvent, deleteEvent,
   listComments, addComment, getReactions, react
 };

@@ -1629,7 +1629,7 @@ async function loadMyMktEvents() {
   const grid = $("mktMyEventGrid");
   if (!grid) return;
   try {
-    const data = await api(`/marketplace/events?owner_id=${state.user.id}`);
+    const data = await api("/marketplace/events/mine");
     grid.innerHTML = data.events.map((e) => `
       <article class="glass mkt-manage-card">
         <strong>${escapeHtml(e.title)}</strong>

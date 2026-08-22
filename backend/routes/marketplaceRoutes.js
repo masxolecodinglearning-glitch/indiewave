@@ -15,6 +15,7 @@ router.delete("/products/:id", requireAuth, ctrl.deleteProduct);
 
 // Events
 router.get("/events", ctrl.listEvents);
+router.get("/events/mine", requireAuth, ctrl.listMyEvents);
 router.get("/events/:id", ctrl.getEvent);
 router.post("/events", requireAuth, imageUpload, ctrl.createEvent);
 router.put("/events/:id", requireAuth, imageUpload, ctrl.updateEvent);
