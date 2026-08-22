@@ -28,6 +28,7 @@
         <a href="#indieWaveAi">IndieWave AI</a>
       </nav>
       <div class="top-actions">
+        <button id="messagesBtn" class="btn btn-outline hidden" type="button">Messages</button>
         <button id="notificationsBtn" class="btn btn-outline hidden" type="button">
           Notifications
           <span id="notificationCount" class="notification-count hidden">0</span>
@@ -575,18 +576,6 @@
       </form>
 
       <button id="closeAuthBtn" class="btn btn-outline">Close</button>
-    </dialog>
-
-    <dialog id="commentsDialog" class="glass comments-dialog">
-      <div class="form-header">
-        <h3>Comments</h3>
-        <button id="commentsCloseBtn" class="form-close">✕</button>
-      </div>
-      <div id="commentsListContainer" class="comments-list"></div>
-      <form id="commentsAddForm" class="searchbar comments-add-form">
-        <input id="commentsInput" type="text" maxlength="1000" placeholder="Write a comment... (login required)" />
-        <button class="btn btn-primary" type="submit">Post</button>
-      </form>
     </dialog>
 
     <script src="./js/app.js"></script>

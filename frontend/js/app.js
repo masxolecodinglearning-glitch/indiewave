@@ -257,9 +257,21 @@ function toggleAuthUI() {
   const authenticated = Boolean(state.token && state.user);
   $("logoutBtn").classList.toggle("hidden", !authenticated);
   $("openAuthBtn").classList.toggle("hidden", authenticated);
+  $("messagesBtn").classList.toggle("hidden", !authenticated);
   $("notificationsBtn").classList.toggle("hidden", !authenticated);
   $("dashboard").classList.toggle("hidden", !authenticated || state.user.role !== "artist");
   $("adminSection").classList.toggle("hidden", !authenticated || state.user.role !== "admin");
+
+  const messagesSection = $("messages");
+  if (messagesSection) messagesSection.classList.toggle("hidden", !authenticated);
+
+  const notificationsPanel = $("notificationsPanel");
+  if (notificationsPanel) notificationsPanel.classList.add("hidden");
+
+  const messagesPanel = $("messagesPanel");
+  if (messagesPanel) messagesPanel.classList.add("hidden");
+
+  state.activeConversationId = null;
 
   // Show/hide marketplace seller CTA buttons
   const sellBtn  = $("mktSellBtn");
@@ -1115,47 +1127,6 @@ function wireEvents() {
   if (prevBtn) prevBtn.addEventListener("click", prevTrack);
   if (nextBtn) nextBtn.addEventListener("click", nextTrack);
 
-  // Comments dialog
-  const commentsCloseBtn = $("commentsCloseBtn");
-  if (commentsCloseBtn) {
-    commentsCloseBtn.addEventListener("click", () => $("commentsDialog").close());
-  }
-
-  const commentsAddForm = $("commentsAddForm");
-  if (commentsAddForm) {
-    commentsAddForm.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      if (!state.token) { notify("Login required to comment"); return; }
-      const input = $("commentsInput");
-      const content = (input ? input.value : "").trim();
-      if (!content) return;
-      try {
-        await api(`/social/releases/${state.commentsReleaseId}/comments`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content })
-        });
-        if (input) input.value = "";
-        const data = await api(`/social/releases/${state.commentsReleaseId}/comments`);
-        const listContainer = $("commentsListContainer");
-        if (!data.comments.length) {
-          listContainer.innerHTML = '<p class="release-meta comments-empty">No comments yet. Be the first!</p>';
-        } else {
-          listContainer.innerHTML = data.comments.map((c) => `
-            <div class="comment-item">
-              <strong class="comment-author">${escapeHtml(c.stage_name)}</strong>
-              <p class="comment-text">${escapeHtml(c.content)}</p>
-            </div>
-          `).join("");
-        }
-        await loadReleases();
-        await loadTrendingReleases();
-      } catch (e) {
-        notify(e.message);
-      }
-    });
-  }
-
   const messageForm = $("messageForm");
   if (messageForm) {
     messageForm.addEventListener("submit", async (event) => {
@@ -1177,6 +1148,21 @@ function wireEvents() {
         await loadNotifications();
       } catch (error) {
         notify(error.message);
+      }
+    });
+  }
+
+  const messagesBtn = $("messagesBtn");
+  if (messagesBtn) {
+    messagesBtn.addEventListener("click", async () => {
+      const section = $("messages");
+      const panel = $("messagesPanel");
+      if (section) section.classList.remove("hidden");
+      if (panel) {
+        panel.classList.toggle("hidden");
+        if (!panel.classList.contains("hidden")) {
+          await loadConversations();
+        }
       }
     });
   }
@@ -1561,11 +1547,24 @@ async function submitMktProduct(form) {
 
 async function submitMktEvent(form) {
   const data = new FormData(form);
-  const result = await api("/marketplace/events", { method: "POST", body: data });
-  notify(`Event "${result.event.title}" published!`);
+  const editingEventId = Number(form.dataset.editingEventId || 0);
+
+  if (editingEventId) {
+    const result = await api(`/marketplace/events/${editingEventId}`, {
+      method: "PUT",
+      body: data
+    });
+    notify(`Event "${result.event.title}" updated!`);
+    delete form.dataset.editingEventId;
+  } else {
+    const result = await api("/marketplace/events", { method: "POST", body: data });
+    notify(`Event "${result.event.title}" published!`);
+  }
+
   form.reset();
   closeDashboardForm();
   loadMarketplaceEvents();
+  loadMyMktEvents();
 }
 
 async function loadMyMktProducts() {
@@ -1600,6 +1599,7 @@ async function loadMyMktEvents() {
         <p class="release-meta">📅 ${mktFormatDate(e.event_date)} · ${escapeHtml(e.status)}</p>
         <div class="mkt-manage-actions">
           <button class="chip" onclick="mktOpenEvent(${e.id})">View</button>
+          <button class="chip" onclick="mktEditEvent(${e.id})">Edit</button>
           <button class="chip btn-danger" onclick="mktDeleteEvent(${e.id})">Delete</button>
         </div>
       </article>`).join("") || '<p class="release-meta">No events yet.</p>';
@@ -1607,6 +1607,44 @@ async function loadMyMktEvents() {
     if (grid) grid.innerHTML = `<p class="release-meta">${escapeHtml(e.message)}</p>`;
   }
 }
+
+window.mktEditEvent = async function mktEditEvent(id) {
+  try {
+    const { event } = await api(`/marketplace/events/${id}`);
+    const form = $("mktEventForm");
+    if (!form || !event) return;
+
+    const fields = {
+      title: event.title,
+      description: event.description || "",
+      event_date: event.event_date || "",
+      start_time: event.start_time || "",
+      end_time: event.end_time || "",
+      venue_name: event.venue_name || "",
+      location: event.location || "",
+      facebook_url: event.facebook_url || "",
+      tiktok_url: event.tiktok_url || "",
+      instagram_url: event.instagram_url || "",
+      website_url: event.website_url || "",
+      whatsapp_url: event.whatsapp_url || "",
+      ticket_url: event.ticket_url || "",
+      ticket_provider: event.ticket_provider || "",
+      ticket_price: event.ticket_price || "",
+      ticket_currency: event.ticket_currency || "ZAR",
+      status: event.status || "upcoming"
+    };
+
+    Object.entries(fields).forEach(([name, value]) => {
+      const input = form.elements.namedItem(name);
+      if (input) input.value = value;
+    });
+
+    form.dataset.editingEventId = id;
+    showDashboardForm("mktEventForm");
+  } catch (error) {
+    notify(error.message);
+  }
+};
 
 window.mktDeleteProduct = async function mktDeleteProduct(id) {
   if (!window.confirm("Delete this product?")) return;
