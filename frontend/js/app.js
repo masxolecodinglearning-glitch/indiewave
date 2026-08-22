@@ -280,6 +280,11 @@ function toggleAuthUI() {
   const eventBtn = $("mktEventBtn");
   if (sellBtn)  sellBtn.classList.toggle("hidden", !authenticated);
   if (eventBtn) eventBtn.classList.toggle("hidden", !authenticated);
+
+  const myProductsPanel = $("mktMyProducts");
+  const myEventsPanel = $("mktMyEvents");
+  if (myProductsPanel) myProductsPanel.classList.toggle("hidden", !authenticated || state.user.role !== "artist");
+  if (myEventsPanel) myEventsPanel.classList.toggle("hidden", !authenticated || state.user.role !== "artist");
 }
 
 // Legacy paths ("uploads/..." or "../uploads/...") are served by Render express.static.
@@ -488,6 +493,8 @@ async function register(form) {
   $("authDialog").close();
   notify("Registration successful");
   await loadMyDashboard();
+  await loadMyMktProducts();
+  await loadMyMktEvents();
   await loadConversations();
   await loadNotifications();
 }
@@ -506,6 +513,8 @@ async function login(form) {
   $("authDialog").close();
   notify("Login successful");
   await loadMyDashboard();
+  await loadMyMktProducts();
+  await loadMyMktEvents();
   await loadAdminDashboard();
   await loadConversations();
   await loadNotifications();
@@ -1607,7 +1616,9 @@ async function submitMktEvent(form) {
 async function loadMyMktProducts() {
   if (!state.user) return;
   const grid = $("mktMyProductGrid");
+  const panel = $("mktMyProducts");
   if (!grid) return;
+  if (panel) panel.classList.remove("hidden");
   try {
     const data = await api(`/marketplace/products?seller_id=${state.user.id}`);
     grid.innerHTML = data.products.map((p) => `
@@ -1627,7 +1638,9 @@ async function loadMyMktProducts() {
 async function loadMyMktEvents() {
   if (!state.user) return;
   const grid = $("mktMyEventGrid");
+  const panel = $("mktMyEvents");
   if (!grid) return;
+  if (panel) panel.classList.remove("hidden");
   try {
     const data = await api("/marketplace/events/mine");
     grid.innerHTML = data.events.map((e) => `
