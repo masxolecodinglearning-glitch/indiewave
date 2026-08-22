@@ -224,10 +224,11 @@
             <h2>Messages</h2>
           </div>
         </div>
-        <div id="messagesPanel" class="messages-panel glass hidden">
+        <div id="messagesPanel" class="messages-panel glass hidden messages-inbox-open">
           <aside id="conversationList" class="conversation-list"></aside>
-          <div class="conversation-window">
+          <div id="conversationWindow" class="conversation-window hidden">
             <div class="conversation-header">
+              <button id="messageBackBtn" class="btn btn-outline message-back hidden" type="button">← Back</button>
               <strong id="conversationTitle">Select a conversation</strong>
             </div>
             <div id="messagesList" class="messages-list"></div>

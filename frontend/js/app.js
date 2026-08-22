@@ -12,6 +12,7 @@ const state = {
   commentsReleaseId: null,
   activeConversationId: null,
   activeConversationUser: null,
+  messageView: "list",
   conversations: [],
   ai: {
     loading: false,
@@ -272,6 +273,7 @@ function toggleAuthUI() {
   if (messagesPanel) messagesPanel.classList.add("hidden");
 
   state.activeConversationId = null;
+  state.messageView = "list";
 
   // Show/hide marketplace seller CTA buttons
   const sellBtn  = $("mktSellBtn");
@@ -667,6 +669,21 @@ window.trackView = async function trackView(releaseId) {
   await api(`/engagement/releases/${releaseId}/view`, { method: "POST" });
 };
 
+function setMessageView(mode) {
+  state.messageView = mode;
+  const panel = $("messagesPanel");
+  const backBtn = $("messageBackBtn");
+  const list = $("conversationList");
+  const thread = $("conversationWindow");
+  if (!panel) return;
+
+  panel.classList.toggle("messages-thread-open", mode === "thread");
+  panel.classList.toggle("messages-inbox-open", mode === "list");
+  if (backBtn) backBtn.classList.toggle("hidden", mode !== "thread");
+  if (list) list.classList.toggle("hidden", mode === "thread");
+  if (thread) thread.classList.toggle("hidden", mode !== "thread");
+}
+
 async function loadConversations() {
   if (!state.token || !$("conversationList")) return;
 
@@ -676,6 +693,7 @@ async function loadConversations() {
     const list = $("conversationList");
     if (!state.conversations.length) {
       list.innerHTML = '<p class="release-meta">No conversations yet.</p>';
+      setMessageView("list");
       return;
     }
 
@@ -684,21 +702,27 @@ async function loadConversations() {
       const snippet = conversation.last_message ? escapeHtml(conversation.last_message) : "No messages yet";
       const unread = conversation.unread_count > 0 ? `<span class="message-unread-badge">${conversation.unread_count}</span>` : "";
       const active = Number(conversation.id) === Number(state.activeConversationId) ? " active" : "";
+      const time = conversation.last_message_at ? new Date(conversation.last_message_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
       return `
         <button class="conversation-item${active}" type="button" data-conversation-id="${conversation.id}" data-user-id="${conversation.other_user?.id || ""}" onclick="openConversation(${conversation.other_user?.id || 0})">
           <div class="conversation-meta">
             <strong>${escapeHtml(name)}</strong>
             ${unread}
           </div>
-          <small>${snippet}</small>
+          <div class="conversation-preview-row">
+            <small>${snippet}</small>
+            ${time ? `<span class="conversation-time">${escapeHtml(time)}</span>` : ""}
+          </div>
         </button>
       `;
     }).join("");
 
-    if (!state.activeConversationId && state.conversations[0]) {
+    if (!state.activeConversationId && state.conversations[0] && state.messageView !== "list") {
       const first = state.conversations[0];
       await openConversation(first.other_user?.id || 0);
     }
+
+    setMessageView(state.activeConversationId ? "thread" : "list");
   } catch (error) {
     if ($("conversationList")) $("conversationList").innerHTML = '<p class="release-meta">Could not load messages.</p>';
   }
@@ -768,6 +792,7 @@ async function openConversation(userId) {
     const result = await api(`/messages/conversations/${userId}`, { method: "POST" });
     state.activeConversationId = Number(result.conversation.id);
     state.activeConversationUser = result.otherUser || null;
+    state.messageView = "thread";
 
     const panel = $("messagesPanel");
     if (panel) panel.classList.remove("hidden");
@@ -775,6 +800,7 @@ async function openConversation(userId) {
     const title = $("conversationTitle");
     if (title) title.textContent = state.activeConversationUser?.stage_name || "Conversation";
 
+    setMessageView("thread");
     await loadConversationMessages();
     await loadConversations();
   } catch (error) {
@@ -1126,6 +1152,17 @@ function wireEvents() {
   const nextBtn = $("nextTrackBtn");
   if (prevBtn) prevBtn.addEventListener("click", prevTrack);
   if (nextBtn) nextBtn.addEventListener("click", nextTrack);
+
+  const messageBackBtn = $("messageBackBtn");
+  if (messageBackBtn) {
+    messageBackBtn.addEventListener("click", () => {
+      state.activeConversationId = null;
+      state.activeConversationUser = null;
+      state.messageView = "list";
+      setMessageView("list");
+      loadConversations();
+    });
+  }
 
   const messageForm = $("messageForm");
   if (messageForm) {
