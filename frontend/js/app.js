@@ -294,6 +294,53 @@ function toggleAuthUI() {
   if (myEventsPanel) myEventsPanel.classList.toggle("hidden", !authenticated || !isArtist);
 }
 
+function showHomeView() {
+  document.querySelectorAll("main > section").forEach((section) => {
+    if (section.id === "dashboard") {
+      section.classList.add("hidden");
+      return;
+    }
+    if (section.id === "adminSection" && state.user?.role !== "admin") {
+      section.classList.add("hidden");
+      return;
+    }
+    section.classList.remove("hidden");
+  });
+
+  const dashboard = $("dashboard");
+  if (dashboard) dashboard.classList.add("hidden");
+
+  const adminSection = $("adminSection");
+  if (adminSection && state.user?.role !== "admin") adminSection.classList.add("hidden");
+
+  const notificationsPanel = $("notificationsPanel");
+  if (notificationsPanel) notificationsPanel.classList.add("hidden");
+}
+
+function showDashboardView() {
+  document.querySelectorAll("main > section").forEach((section) => {
+    const isDashboard = section.id === "dashboard";
+    const isAdmin = section.id === "adminSection";
+    if (isDashboard || (isAdmin && state.user?.role === "admin")) {
+      section.classList.remove("hidden");
+      return;
+    }
+    section.classList.add("hidden");
+  });
+
+  const dashboard = $("dashboard");
+  if (dashboard) {
+    dashboard.classList.remove("hidden");
+    dashboard.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  const notificationsPanel = $("notificationsPanel");
+  if (notificationsPanel) notificationsPanel.classList.add("hidden");
+
+  const messagesPanel = $("messagesPanel");
+  if (messagesPanel) messagesPanel.classList.add("hidden");
+}
+
 // Legacy paths ("uploads/..." or "../uploads/...") are served by Render express.static.
 // New R2 object keys ("audio/...", "video/...", "artwork/...", "profiles/...") are streamed
 // through the backend proxy at GET /api/media/<key>.
@@ -1224,18 +1271,26 @@ function wireEvents() {
   const dashboardBtn = $("dashboardBtn");
   if (dashboardBtn) {
     dashboardBtn.addEventListener("click", () => {
-      const section = $("dashboard");
-      const panel = $("messagesPanel");
-      const notificationsPanel = $("notificationsPanel");
       closeDashboardForm();
-      if (panel) panel.classList.add("hidden");
-      if (notificationsPanel) notificationsPanel.classList.add("hidden");
-      if (section) {
-        section.classList.remove("hidden");
-        section.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
+      showDashboardView();
     });
   }
+
+  document.querySelectorAll('a[href="#dashboard"]').forEach((link) => {
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      closeDashboardForm();
+      showDashboardView();
+    });
+  });
+
+  document.querySelectorAll('a[href="#home"]').forEach((link) => {
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      showHomeView();
+      window.scrollTo({ top: 0, behavior: "auto" });
+    });
+  });
 
   const notificationsBtn = $("notificationsBtn");
   if (notificationsBtn) {
