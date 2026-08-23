@@ -1677,6 +1677,12 @@ dialog::backdrop {
     display: flex;
   }
 
+  .topnav #logoutBtn {
+    flex: 1 1 100%;
+    min-height: 2.75rem;
+    margin-top: 0.2rem;
+  }
+
   .top-actions {
     margin-left: auto;
   }

@@ -586,12 +586,26 @@
     <script>
       const navToggle = document.querySelector(".nav-toggle");
       const navMenu = document.getElementById("topnavMenu");
+      const logoutButton = document.getElementById("logoutBtn");
+      const actions = document.querySelector(".top-actions");
+      const authButton = document.getElementById("openAuthBtn");
+      const mobileQuery = window.matchMedia("(max-width: 980px)");
+      const syncMobileLogout = () => {
+        if (!logoutButton || !navMenu || !actions || !authButton) return;
+        if (mobileQuery.matches) {
+          navMenu.appendChild(logoutButton);
+        } else {
+          actions.insertBefore(logoutButton, authButton);
+        }
+      };
       if (navToggle && navMenu) {
         navToggle.addEventListener("click", () => {
           const open = navMenu.classList.toggle("open");
           navToggle.setAttribute("aria-expanded", String(open));
         });
       }
+      syncMobileLogout();
+      mobileQuery.addEventListener("change", syncMobileLogout);
     </script>
   </body>
 </html>
