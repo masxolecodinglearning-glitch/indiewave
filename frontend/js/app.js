@@ -9,6 +9,7 @@ const state = {
   releases: [],
   trendingReleases: [],
   currentReleaseId: null,
+  currentRelease: null,
   commentsReleaseId: null,
   activeConversationId: null,
   activeConversationUser: null,
@@ -662,13 +663,16 @@ window.playRelease = function playRelease(releaseId) {
   if (!release) return;
 
   state.currentReleaseId = Number(releaseId);
+  state.currentRelease = release;
   $('nowPlayingTitle').textContent = `${release.title} - ${release.stage_name}`;
+  updateGlobalPlayer(release);
 
   const hasVideo = Boolean(release.media_video_path);
   const audio = $("musicPlayer");
   const video = $("videoPlayer");
 
   if (hasVideo) {
+    audio.pause();
     video.classList.remove("hidden");
     audio.classList.add("hidden");
     video.src = mediaUrl(release.media_video_path);
@@ -680,11 +684,79 @@ window.playRelease = function playRelease(releaseId) {
 
   audio.classList.remove("hidden");
   video.classList.add("hidden");
-  audio.src = mediaUrl(release.media_audio_path);
+  video.pause();
+  const nextSrc = mediaUrl(release.media_audio_path);
+  if (audio.src !== nextSrc) {
+    audio.src = nextSrc;
+    audio.load();
+  }
   audio.play().catch(() => {});
   trackListen(releaseId).catch(() => {});
   updateVisualizerState();
 };
+
+function formatTime(seconds) {
+  if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
+  return `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`;
+}
+
+function updateGlobalPlayer(release) {
+  const player = $("globalPlayer");
+  if (!player || !release) return;
+  player.classList.remove("hidden");
+  const artwork = release.artwork_path ? mediaUrl(release.artwork_path) : "";
+  [$("globalPlayerArtwork"), $("nowPlayingArtwork")].forEach((image) => {
+    if (!image) return;
+    image.src = artwork;
+    image.classList.toggle("hidden", !artwork);
+    image.alt = artwork ? `${release.title} artwork` : "";
+  });
+  [$("globalPlayerTitle"), $("nowPlayingDialogTitle")].forEach((element) => {
+    if (element) element.textContent = release.title || "Untitled release";
+  });
+  [$("globalPlayerArtist"), $("nowPlayingDialogArtist")].forEach((element) => {
+    if (element) element.textContent = release.stage_name || "Unknown Artist";
+  });
+  syncPlayerControls();
+}
+
+function syncPlayerProgress() {
+  const audio = $("musicPlayer");
+  if (!audio) return;
+  const percentage = audio.duration ? (audio.currentTime / audio.duration) * 100 : 0;
+  [$("globalProgress"), $("nowPlayingProgress")].forEach((input) => {
+    if (input) input.value = String(percentage);
+  });
+  [$("globalCurrentTime"), $("nowPlayingCurrentTime")].forEach((element) => {
+    if (element) element.textContent = formatTime(audio.currentTime);
+  });
+  [$("globalDuration"), $("nowPlayingDuration")].forEach((element) => {
+    if (element) element.textContent = formatTime(audio.duration);
+  });
+}
+
+function syncPlayerControls() {
+  const audio = $("musicPlayer");
+  const label = audio && !audio.paused ? "Pause" : "Play";
+  [$("globalPlayBtn"), $("nowPlayingPlayBtn")].forEach((button) => {
+    if (button) {
+      button.textContent = label;
+      button.setAttribute("aria-label", label);
+    }
+  });
+}
+
+function togglePlayerPlayback() {
+  const audio = $("musicPlayer");
+  if (!audio || !state.currentRelease) return;
+  if (audio.paused) audio.play().catch(() => {});
+  else audio.pause();
+}
+
+function seekPlayer(value) {
+  const audio = $("musicPlayer");
+  if (audio && Number.isFinite(audio.duration)) audio.currentTime = (Number(value) / 100) * audio.duration;
+}
 
 function updateVisualizerState() {
   const audio = $("musicPlayer");
@@ -1204,10 +1276,15 @@ function wireEvents() {
   if (audio) {
     audio.addEventListener("play", () => {
       updateVisualizerState();
+      syncPlayerControls();
     });
     audio.addEventListener("pause", () => {
       updateVisualizerState();
+      syncPlayerControls();
     });
+    audio.addEventListener("timeupdate", syncPlayerProgress);
+    audio.addEventListener("loadedmetadata", syncPlayerProgress);
+    audio.addEventListener("durationchange", syncPlayerProgress);
   }
 
   // Prev / Next track buttons
@@ -1215,6 +1292,19 @@ function wireEvents() {
   const nextBtn = $("nextTrackBtn");
   if (prevBtn) prevBtn.addEventListener("click", prevTrack);
   if (nextBtn) nextBtn.addEventListener("click", nextTrack);
+
+  [$("globalPrevBtn"), $("nowPlayingPrevBtn")].forEach((button) => button?.addEventListener("click", prevTrack));
+  [$("globalNextBtn"), $("nowPlayingNextBtn")].forEach((button) => button?.addEventListener("click", nextTrack));
+  [$("globalPlayBtn"), $("nowPlayingPlayBtn")].forEach((button) => button?.addEventListener("click", togglePlayerPlayback));
+  [$("globalProgress"), $("nowPlayingProgress")].forEach((input) => input?.addEventListener("input", (event) => seekPlayer(event.target.value)));
+  const volume = $("globalVolume");
+  if (volume && audio) volume.addEventListener("input", () => { audio.volume = Number(volume.value); });
+
+  const nowPlayingDialog = $("nowPlayingDialog");
+  $("globalExpandBtn")?.addEventListener("click", () => {
+    if (nowPlayingDialog && state.currentRelease && !nowPlayingDialog.open) nowPlayingDialog.showModal();
+  });
+  $("nowPlayingCloseBtn")?.addEventListener("click", () => nowPlayingDialog?.close());
 
   const messageBackBtn = $("messageBackBtn");
   if (messageBackBtn) {

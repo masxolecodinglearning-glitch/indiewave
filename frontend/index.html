@@ -84,7 +84,7 @@
             <button id="prevTrackBtn" class="btn btn-outline player-btn" aria-label="Previous track">⏮ Prev</button>
             <button id="nextTrackBtn" class="btn btn-outline player-btn" aria-label="Next track">Next ⏭</button>
           </div>
-          <audio id="musicPlayer" controls class="player"></audio>
+          <audio id="musicPlayer" class="player" preload="metadata"></audio>
           <video id="videoPlayer" controls class="player hidden"></video>
           <p class="hero-panel-note">Select any release card below to start playback.</p>
         </aside>
@@ -537,6 +537,50 @@
         </div>
       </section>
     </main>
+
+    <section id="globalPlayer" class="global-player glass hidden" aria-label="Music player">
+      <div class="global-player-track">
+        <img id="globalPlayerArtwork" class="global-player-artwork" alt="" />
+        <div class="global-player-copy">
+          <strong id="globalPlayerTitle">No release selected</strong>
+          <span id="globalPlayerArtist">Choose a release to start listening</span>
+        </div>
+      </div>
+      <div class="global-player-main">
+        <div class="global-player-controls">
+          <button id="globalPrevBtn" class="player-icon-btn" type="button" aria-label="Previous track">Prev</button>
+          <button id="globalPlayBtn" class="player-icon-btn player-icon-btn-primary" type="button" aria-label="Play">Play</button>
+          <button id="globalNextBtn" class="player-icon-btn" type="button" aria-label="Next track">Next</button>
+        </div>
+        <div class="global-player-progress">
+          <span id="globalCurrentTime">0:00</span>
+          <input id="globalProgress" type="range" min="0" max="100" value="0" step="0.1" aria-label="Seek through track" />
+          <span id="globalDuration">0:00</span>
+        </div>
+      </div>
+      <div class="global-player-volume">
+        <label for="globalVolume">Volume</label>
+        <input id="globalVolume" type="range" min="0" max="1" value="1" step="0.01" aria-label="Volume" />
+      </div>
+      <button id="globalExpandBtn" class="btn btn-outline global-expand-btn" type="button">Now Playing</button>
+    </section>
+
+    <dialog id="nowPlayingDialog" class="glass now-playing-dialog">
+      <button id="nowPlayingCloseBtn" class="form-close now-playing-close" type="button" aria-label="Close now playing">Close</button>
+      <img id="nowPlayingArtwork" class="now-playing-artwork" alt="" />
+      <p class="section-kicker">Now Playing</p>
+      <h2 id="nowPlayingDialogTitle">No release selected</h2>
+      <p id="nowPlayingDialogArtist" class="release-meta">Choose a release to start listening</p>
+      <div class="now-playing-progress">
+        <input id="nowPlayingProgress" type="range" min="0" max="100" value="0" step="0.1" aria-label="Seek through track" />
+        <div><span id="nowPlayingCurrentTime">0:00</span><span id="nowPlayingDuration">0:00</span></div>
+      </div>
+      <div class="now-playing-controls">
+        <button id="nowPlayingPrevBtn" class="btn btn-outline" type="button">Previous</button>
+        <button id="nowPlayingPlayBtn" class="btn btn-primary" type="button">Play</button>
+        <button id="nowPlayingNextBtn" class="btn btn-outline" type="button">Next</button>
+      </div>
+    </dialog>
 
     <footer class="footer glass">
       <p>© Ballout Records – IndieWave 2026</p>
