@@ -35,9 +35,38 @@ CREATE TABLE IF NOT EXISTS releases (
   scheduled_at TIMESTAMPTZ,
   replay_available BOOLEAN NOT NULL DEFAULT FALSE,
   is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+  content_type VARCHAR(20) NOT NULL DEFAULT 'upload' CHECK (content_type IN ('upload', 'embed')),
+  embed_provider VARCHAR(30) CHECK (embed_provider IN ('youtube', 'spotify', 'ditto', 'distrokid')),
+  embed_url TEXT,
+  embed_id VARCHAR(255),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- IndieWave Embed: additive columns for pre-existing "releases" tables.
+-- CREATE TABLE IF NOT EXISTS above is a no-op when the table already exists,
+-- so these ADD COLUMN IF NOT EXISTS statements keep older databases in sync
+-- without touching any existing column, data, or the upload-only path.
+ALTER TABLE releases ADD COLUMN IF NOT EXISTS content_type VARCHAR(20) NOT NULL DEFAULT 'upload';
+ALTER TABLE releases ADD COLUMN IF NOT EXISTS embed_provider VARCHAR(30);
+ALTER TABLE releases ADD COLUMN IF NOT EXISTS embed_url TEXT;
+ALTER TABLE releases ADD COLUMN IF NOT EXISTS embed_id VARCHAR(255);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'releases_content_type_check'
+  ) THEN
+    ALTER TABLE releases ADD CONSTRAINT releases_content_type_check
+      CHECK (content_type IN ('upload', 'embed'));
+  END IF;
+END $$;
+
+-- Provider list dropped Apple Music and added Ditto/DistroKid pre-save links.
+-- Dropped and recreated NOT VALID so it never fails on rows written before this change.
+ALTER TABLE releases DROP CONSTRAINT IF EXISTS releases_embed_provider_check;
+ALTER TABLE releases ADD CONSTRAINT releases_embed_provider_check
+  CHECK (embed_provider IN ('youtube', 'spotify', 'ditto', 'distrokid')) NOT VALID;
 
 CREATE TABLE IF NOT EXISTS followers (
   id BIGSERIAL PRIMARY KEY,

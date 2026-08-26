@@ -379,6 +379,18 @@
               <h3>Upload Release</h3>
               <button type="button" class="form-close" onclick="closeDashboardForm()">✕</button>
             </div>
+
+            <div class="release-type-selector">
+              <label>
+                <input type="radio" name="contentType" value="upload" checked onchange="toggleReleaseContentType('upload')" />
+                Upload File
+              </label>
+              <label>
+                <input type="radio" name="contentType" value="embed" onchange="toggleReleaseContentType('embed')" />
+                IndieWave Embed
+              </label>
+            </div>
+
             <input name="title" placeholder="Release Title" required />
             <textarea name="description" placeholder="Description"></textarea>
             <select name="type" required>
@@ -393,12 +405,26 @@
             <input name="genre" placeholder="Genre" required />
             <input name="category" placeholder="Category" required />
             <input name="country" placeholder="Country" required />
-            <label>Audio (MP3)</label>
-            <input name="audio" type="file" accept="audio/mpeg" />
-            <label>Video (MP4)</label>
-            <input name="video" type="file" accept="video/mp4" />
-            <label>Artwork</label>
-            <input name="artwork" type="file" accept="image/png,image/jpeg,image/webp" />
+
+            <!-- Upload file section (shown by default) -->
+            <div id="releaseUploadSection">
+              <label>Audio (MP3)</label>
+              <input name="audio" type="file" accept="audio/mpeg" />
+              <label>Video (MP4)</label>
+              <input name="video" type="file" accept="video/mp4" />
+              <label>Artwork</label>
+              <input name="artwork" type="file" accept="image/png,image/jpeg,image/webp" />
+            </div>
+
+            <!-- Embed section (hidden by default) -->
+            <div id="releaseEmbedSection" class="hidden">
+              <label>Paste your YouTube, Spotify, Ditto or DistroKid URL</label>
+              <input id="embedUrlInput" name="embedUrl" type="url" placeholder="https://..." />
+              <button type="button" id="detectPlatformBtn" class="btn btn-outline">Detect Platform</button>
+              <p class="form-note">Supported: YouTube videos, Spotify tracks/albums/playlists, Ditto pre-save links, DistroKid pre-save links</p>
+              <div id="embedPreviewContainer" class="hidden"></div>
+            </div>
+
             <div id="releaseUploadStatus" class="upload-status hidden" aria-live="polite" aria-atomic="true">
               <div class="upload-status-header">
                 <span id="releaseUploadStatusText">Uploading...</span>

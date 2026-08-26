@@ -12,13 +12,18 @@ async function createRelease({
   mediaAudioPath,
   mediaVideoPath,
   scheduledAt,
-  replayAvailable
+  replayAvailable,
+  contentType = "upload",
+  embedProvider = null,
+  embedUrl = null,
+  embedId = null
 }) {
   const query = `
     INSERT INTO releases (
       artist_id, title, description, type, genre, category, country,
-      artwork_path, media_audio_path, media_video_path, scheduled_at, replay_available
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+      artwork_path, media_audio_path, media_video_path, scheduled_at, replay_available,
+      content_type, embed_provider, embed_url, embed_id
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
     RETURNING *
   `;
 
@@ -34,7 +39,11 @@ async function createRelease({
     mediaAudioPath,
     mediaVideoPath,
     scheduledAt,
-    replayAvailable
+    replayAvailable,
+    contentType,
+    embedProvider,
+    embedUrl,
+    embedId
   ];
 
   const { rows } = await db.query(query, values);

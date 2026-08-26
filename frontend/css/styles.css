@@ -1876,3 +1876,122 @@ dialog::backdrop {
     width: 4px;
   }
 }
+
+/* ============================================================
+   INDIEWAVE EMBED FEATURE
+   ============================================================ */
+
+.release-type-selector {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.8rem;
+  padding: 0.75rem;
+  background: rgba(255, 47, 143, 0.06);
+  border: 1px solid rgba(255, 47, 143, 0.25);
+  border-radius: 12px;
+}
+
+.release-type-selector label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  flex: 1;
+  font-weight: 600;
+}
+
+.release-type-selector input[type="radio"] {
+  accent-color: var(--pink);
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+}
+
+#releaseUploadSection,
+#releaseEmbedSection {
+  display: grid;
+  gap: 0.6rem;
+}
+
+#releaseEmbedSection.hidden {
+  display: none !important;
+}
+
+.form-note {
+  margin: 0.4rem 0 0;
+  padding: 0.6rem 0.8rem;
+  background: rgba(255, 47, 143, 0.08);
+  border-left: 2px solid var(--pink-soft);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+#embedPreviewContainer {
+  padding: 0.85rem;
+  border: 1px solid rgba(255, 47, 143, 0.3);
+  border-radius: 12px;
+  background: rgba(255, 47, 143, 0.08);
+}
+
+#embedPreviewContainer.hidden {
+  display: none !important;
+}
+
+.embed-container {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.embed-label {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--pink-soft);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.embed-container iframe {
+  width: 100%;
+  max-width: 100%;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.embed-link {
+  display: inline-block;
+  text-decoration: none !important;
+  text-align: center;
+  margin-top: 0.4rem;
+}
+
+.now-playing-embed-content {
+  margin: 0.8rem 0;
+  padding: 0.85rem;
+  border: 1px solid rgba(255, 47, 143, 0.25);
+  border-radius: 12px;
+  background: rgba(255, 47, 143, 0.08);
+}
+
+.now-playing-embed-content iframe {
+  width: 100%;
+  max-width: 100%;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+@media (max-width: 500px) {
+  .release-type-selector {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .release-type-selector label {
+    width: 100%;
+  }
+
+  .now-playing-embed-content iframe {
+    height: 300px !important;
+  }
+}

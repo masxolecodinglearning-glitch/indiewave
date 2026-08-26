@@ -2,6 +2,7 @@ const ApiError = require("../utils/apiError");
 const releaseModel = require("../models/releaseModel");
 const r2 = require("../utils/r2");
 const { folderForFile } = require("../utils/upload");
+const { detectAndExtractEmbed } = require("../utils/embed");
 
 const releaseTypes = ["single", "ep", "album", "mixtape", "dj_mix", "video", "live_performance"];
 
@@ -23,37 +24,74 @@ async function uploadFileToR2(file, isProfile = false) {
 
 async function createRelease(req, res, next) {
   try {
-    const { title, description, type, genre, category, country, scheduledAt, replayAvailable } = req.body;
+    const { title, description, type, genre, category, country, scheduledAt, replayAvailable, embedUrl, contentType } = req.body;
 
     if (!releaseTypes.includes(type)) {
       throw new ApiError(422, "Invalid release type");
     }
 
-    const files = req.files || {};
-    const audio = files.audio?.[0];
-    const video = files.video?.[0];
-    const artwork = files.artwork?.[0];
+    // Determine if this is an upload or embed
+    const isEmbed = contentType === "embed" && embedUrl;
 
-    if (!audio && !video) {
-      throw new ApiError(422, "At least one media file (audio or video) is required");
+    if (isEmbed) {
+      // Embed flow
+      const embedData = detectAndExtractEmbed(embedUrl);
+      if (!embedData) {
+        throw new ApiError(422, "Invalid or unsupported embed URL. Supported: YouTube, Spotify, Ditto Pre-Save, DistroKid Pre-Save");
+      }
+
+      const release = await releaseModel.createRelease({
+        artistId: req.user.id,
+        title,
+        description,
+        type,
+        genre,
+        category,
+        country,
+        artworkPath: null,
+        mediaAudioPath: null,
+        mediaVideoPath: null,
+        scheduledAt: scheduledAt || null,
+        replayAvailable: replayAvailable === "true" || replayAvailable === true,
+        contentType: "embed",
+        embedProvider: embedData.provider,
+        embedUrl: embedData.normalizedUrl,
+        embedId: embedData.embedId
+      });
+
+      res.status(201).json({ success: true, release });
+    } else {
+      // Upload flow (existing logic)
+      const files = req.files || {};
+      const audio = files.audio?.[0];
+      const video = files.video?.[0];
+      const artwork = files.artwork?.[0];
+
+      if (!audio && !video) {
+        throw new ApiError(422, "At least one media file (audio or video) is required");
+      }
+
+      const release = await releaseModel.createRelease({
+        artistId: req.user.id,
+        title,
+        description,
+        type,
+        genre,
+        category,
+        country,
+        artworkPath: artwork ? await uploadFileToR2(artwork) : null,
+        mediaAudioPath: audio ? await uploadFileToR2(audio) : null,
+        mediaVideoPath: video ? await uploadFileToR2(video) : null,
+        scheduledAt: scheduledAt || null,
+        replayAvailable: replayAvailable === "true" || replayAvailable === true,
+        contentType: "upload",
+        embedProvider: null,
+        embedUrl: null,
+        embedId: null
+      });
+
+      res.status(201).json({ success: true, release });
     }
-
-    const release = await releaseModel.createRelease({
-      artistId: req.user.id,
-      title,
-      description,
-      type,
-      genre,
-      category,
-      country,
-      artworkPath: artwork ? await uploadFileToR2(artwork) : null,
-      mediaAudioPath: audio ? await uploadFileToR2(audio) : null,
-      mediaVideoPath: video ? await uploadFileToR2(video) : null,
-      scheduledAt: scheduledAt || null,
-      replayAvailable: replayAvailable === "true" || replayAvailable === true
-    });
-
-    res.status(201).json({ success: true, release });
   } catch (error) {
     next(error);
   }
@@ -62,12 +100,26 @@ async function createRelease(req, res, next) {
 async function editRelease(req, res, next) {
   try {
     const releaseId = Number(req.params.id);
+    const { embedUrl, contentType } = req.body;
     const payload = {};
 
     ["title", "description", "type", "genre", "category", "country", "scheduled_at", "replay_available"].forEach((field) => {
       if (req.body[field] !== undefined) payload[field] = req.body[field];
     });
 
+    // Handle embed URL update if provided
+    if (embedUrl && contentType === "embed") {
+      const embedData = detectAndExtractEmbed(embedUrl);
+      if (!embedData) {
+        throw new ApiError(422, "Invalid or unsupported embed URL. Supported: YouTube, Spotify, Ditto Pre-Save, DistroKid Pre-Save");
+      }
+      payload.content_type = "embed";
+      payload.embed_provider = embedData.provider;
+      payload.embed_url = embedData.normalizedUrl;
+      payload.embed_id = embedData.embedId;
+    }
+
+    // Handle file uploads for non-embed content
     if (req.files?.audio?.[0]) payload.media_audio_path = await uploadFileToR2(req.files.audio[0]);
     if (req.files?.video?.[0]) payload.media_video_path = await uploadFileToR2(req.files.video[0]);
     if (req.files?.artwork?.[0]) payload.artwork_path = await uploadFileToR2(req.files.artwork[0]);

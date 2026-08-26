@@ -370,11 +370,22 @@ function releaseTypeLabel(type) {
 function renderReleaseCard(release, mine = false) {
   const artwork = release.artwork_path ? `<img src="${mediaUrl(release.artwork_path)}" alt="${escapeHtml(release.title)}" />` : "";
   const releaseId = Number(release.id);
+  const embedProviderLabel = {
+    youtube: "YouTube",
+    spotify: "Spotify",
+    ditto: "Ditto",
+    distrokid: "DistroKid"
+  }[release.embed_provider];
+  const isPreSaveOnly = release.embed_provider === "ditto" || release.embed_provider === "distrokid";
+  const embedBadge = release.content_type === "embed" && embedProviderLabel
+    ? `<p class="release-meta embed-label">${isPreSaveOnly ? "Pre-Save via" : "Embedded from"} ${escapeHtml(embedProviderLabel)}</p>`
+    : "";
 
   return `
     <article class="glass release-card">
       ${artwork}
       <h3>${escapeHtml(release.title)}</h3>
+      ${embedBadge}
       <p class="release-meta">${escapeHtml(release.stage_name || "Unknown Artist")} â€¢ ${escapeHtml(releaseTypeLabel(release.type))}</p>
       <p class="release-meta">${escapeHtml(release.genre)} â€¢ ${escapeHtml(release.country)}</p>
       <p class="release-meta">Likes: ${release.likes || 0} | Comments: ${release.comments || 0}</p>
@@ -474,7 +485,7 @@ async function loadMyDashboard() {
   if (!state.user || state.user.role !== "artist") return;
   const data = await api("/releases/dashboard/mine");
   $("myReleaseGrid").innerHTML = data.releases.map((release) => renderReleaseCard(release, true)).join("");
-  
+
   // Update dashboard header with artist name
   const artistName = state.user.stage_name || state.user.name || "Artist";
   const dashboardNameEl = $("dashboardArtistName");
@@ -665,8 +676,40 @@ window.playRelease = function playRelease(releaseId) {
   state.currentReleaseId = Number(releaseId);
   state.currentRelease = release;
   $('nowPlayingTitle').textContent = `${release.title} - ${release.stage_name}`;
-  updateGlobalPlayer(release);
 
+  // Handle embedded content (YouTube, Spotify) and pre-save links (Ditto, DistroKid)
+  if (release.content_type === 'embed' && release.embed_provider && release.embed_id) {
+    // Stop any playing audio/video
+    const audio = $("musicPlayer");
+    const video = $("videoPlayer");
+    if (audio) audio.pause();
+    if (video) {
+      video.pause();
+      video.classList.add("hidden");
+    }
+
+    updateGlobalPlayer(release);
+
+    // Show the embed in the now playing dialog
+    const dialog = $("nowPlayingDialog");
+    if (dialog) {
+      const embedHtml = renderEmbedContent(release);
+      const contentArea = dialog.querySelector('.now-playing-embed-content') || (() => {
+        const div = document.createElement('div');
+        div.className = 'now-playing-embed-content';
+        dialog.insertBefore(div, dialog.querySelector('.now-playing-progress'));
+        return div;
+      })();
+      contentArea.innerHTML = embedHtml;
+      dialog.showModal();
+    }
+
+    trackView(releaseId).catch(() => {});
+    return;
+  }
+
+  // Handle regular uploads (audio/video)
+  updateGlobalPlayer(release);
   const hasVideo = Boolean(release.media_video_path);
   const audio = $("musicPlayer");
   const video = $("videoPlayer");
@@ -762,7 +805,7 @@ function updateVisualizerState() {
   const audio = $("musicPlayer");
   const vizContainer = document.querySelector(".visualizer-container");
   if (!vizContainer) return;
-  
+
   if (audio && !audio.paused) {
     vizContainer.parentElement.classList.add("musicPlayer--playing");
   } else {
@@ -1073,6 +1116,183 @@ window.openReportForRelease = function openReportForRelease(releaseId) {
   form.scrollIntoView({ behavior: "smooth" });
 };
 
+/**
+ * Toggle between upload and embed content types in the release form
+ */
+window.toggleReleaseContentType = function toggleReleaseContentType(type) {
+  const uploadSection = $("releaseUploadSection");
+  const embedSection = $("releaseEmbedSection");
+  const previewContainer = $("embedPreviewContainer");
+
+  if (type === "embed") {
+    if (uploadSection) uploadSection.classList.add("hidden");
+    if (embedSection) embedSection.classList.remove("hidden");
+  } else {
+    if (uploadSection) uploadSection.classList.remove("hidden");
+    if (embedSection) embedSection.classList.add("hidden");
+    if (previewContainer) {
+      previewContainer.classList.add("hidden");
+      previewContainer.innerHTML = "";
+    }
+  }
+};
+
+/**
+ * Client-side URL detection for IndieWave Embed preview only.
+ * The backend independently re-validates and normalizes the URL on submit,
+ * so this is purely a UX preview and never trusted for storage.
+ */
+function detectEmbedPlatform(rawUrl) {
+  try {
+    let normalizedUrl = String(rawUrl || "").trim();
+    if (!normalizedUrl) return null;
+    if (!/^https?:\/\//i.test(normalizedUrl)) normalizedUrl = `https://${normalizedUrl}`;
+
+    const urlObj = new URL(normalizedUrl);
+    if (urlObj.protocol !== "https:") return null;
+    const hostname = urlObj.hostname;
+
+    if (hostname.includes("youtube.com") || hostname.includes("youtu.be")) {
+      const match = normalizedUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/);
+      if (match) return { provider: "youtube", embedId: match[1], normalizedUrl };
+      return null;
+    }
+
+    if (hostname.includes("spotify.com") || hostname.includes("spotify.link")) {
+      const pathMatch = urlObj.pathname.match(/\/(track|album|playlist)\/([a-zA-Z0-9]+)/);
+      if (pathMatch) return { provider: "spotify", embedId: pathMatch[2], normalizedUrl };
+      if (hostname.includes("spotify.link")) {
+        const linkMatch = urlObj.pathname.match(/^\/([a-zA-Z0-9]+)/);
+        if (linkMatch) return { provider: "spotify", embedId: linkMatch[1], normalizedUrl };
+      }
+      return null;
+    }
+
+    if (hostname.includes("ditto.fm")) {
+      const path = urlObj.pathname.replace(/^\//, "");
+      if (path) return { provider: "ditto", embedId: path, normalizedUrl };
+      return null;
+    }
+
+    if (hostname.includes("distrokid.com") || hostname.includes("hyperfollow.com")) {
+      const path = urlObj.pathname.replace(/^\//, "");
+      if (path) return { provider: "distrokid", embedId: path, normalizedUrl };
+      return null;
+    }
+
+    return null;
+  } catch (error) {
+    return null;
+  }
+}
+
+/**
+ * Handle "Detect Platform" button: shows platform name and safe embed preview.
+ */
+function handleDetectPlatform() {
+  const input = $("embedUrlInput");
+  const previewContainer = $("embedPreviewContainer");
+  if (!input || !previewContainer) return;
+
+  const detected = detectEmbedPlatform(input.value);
+  if (!detected) {
+    previewContainer.classList.remove("hidden");
+    previewContainer.innerHTML = `<p class="embed-label">Unsupported URL</p><p class="form-note">Please paste a valid YouTube, Spotify, Ditto or DistroKid link.</p>`;
+    return;
+  }
+
+  const providerLabel = {
+    youtube: "YouTube",
+    spotify: "Spotify",
+    ditto: "Ditto",
+    distrokid: "DistroKid"
+  }[detected.provider] || "External";
+
+  const embedHtml = generateEmbedHtml(detected.provider, detected.embedId);
+  previewContainer.classList.remove("hidden");
+  if (embedHtml) {
+    previewContainer.innerHTML = `<p class="embed-label">Platform: ${escapeHtml(providerLabel)}</p>${embedHtml}`;
+  } else {
+    const link = generateExternalLink(detected.provider, detected.normalizedUrl);
+    previewContainer.innerHTML = `<p class="embed-label">Platform: ${escapeHtml(providerLabel)}</p><a href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-outline embed-link">${escapeHtml(link.label)}</a>`;
+  }
+}
+
+/**
+ * Generate embed HTML for different providers
+ */
+function generateEmbedHtml(provider, embedId) {
+  if (!embedId) return null;
+
+  switch (provider) {
+    case 'youtube':
+      return `<iframe width="100%" height="400" src="https://www.youtube-nocookie.com/embed/${escapeHtml(embedId)}" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="max-width: 100%; border-radius: 8px;"></iframe>`;
+
+    case 'spotify':
+      return `<iframe style="border-radius:12px" src="https://open.spotify.com/embed/track/${escapeHtml(embedId)}?utm_source=generator" width="100%" height="352" frameborder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>`;
+
+    // Ditto and DistroKid are pre-save/promotional links only, not embedded players
+    case 'ditto':
+    case 'distrokid':
+      return null;
+
+    default:
+      return null;
+  }
+}
+
+/**
+ * Generate external link for embed content
+ */
+function generateExternalLink(provider, embedUrl) {
+  if (!embedUrl) return null;
+
+  const labels = {
+    youtube: 'Watch on YouTube',
+    spotify: 'Listen on Spotify',
+    ditto: 'Ditto Pre-Save',
+    distrokid: 'DistroKid Pre-Save'
+  };
+
+  return {
+    label: labels[provider] || 'Open External',
+    url: embedUrl
+  };
+}
+
+/**
+ * Render embed content in the release card
+ */
+function renderEmbedContent(release) {
+  if (!release.embed_provider || !release.embed_id) return '';
+
+  const embedHtml = generateEmbedHtml(release.embed_provider, release.embed_id);
+  const link = generateExternalLink(release.embed_provider, release.embed_url);
+  const providerLabel = {
+    youtube: 'YouTube',
+    spotify: 'Spotify',
+    ditto: 'Ditto',
+    distrokid: 'DistroKid'
+  }[release.embed_provider] || 'External';
+  const isPreSaveOnly = release.embed_provider === 'ditto' || release.embed_provider === 'distrokid';
+
+  let html = `<div class="embed-container"><p class="embed-label">${isPreSaveOnly ? 'Pre-Save via' : 'Embedded from'} ${escapeHtml(providerLabel)}</p>`;
+  if (embedHtml) {
+    html += embedHtml;
+  }
+  if (link && link.url) {
+    html += `<a href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-outline embed-link">${escapeHtml(link.label)}</a>`;
+  }
+  html += '</div>';
+
+  return html;
+}
+
+/**
+ * Updated playRelease to handle embeds
+ */
+
+
 function wireEvents() {
   $("openAuthBtn").addEventListener("click", () => $("authDialog").showModal());
   $("closeAuthBtn").addEventListener("click", () => $("authDialog").close());
@@ -1133,6 +1353,11 @@ function wireEvents() {
       await loadTrendingReleases();
     }
   });
+
+  const detectPlatformBtn = $("detectPlatformBtn");
+  if (detectPlatformBtn) {
+    detectPlatformBtn.addEventListener("click", handleDetectPlatform);
+  }
 
   $("liveForm").addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -1252,19 +1477,19 @@ function wireEvents() {
   const dashboardProfileBtn = $("dashboardProfileBtn");
   const dashboardUploadBtn = $("dashboardUploadBtn");
   const dashboardLiveBtn = $("dashboardLiveBtn");
-  
+
   if (dashboardProfileBtn) {
     dashboardProfileBtn.addEventListener("click", () => {
       showDashboardForm("profileForm");
     });
   }
-  
+
   if (dashboardUploadBtn) {
     dashboardUploadBtn.addEventListener("click", () => {
       showDashboardForm("releaseForm");
     });
   }
-  
+
   if (dashboardLiveBtn) {
     dashboardLiveBtn.addEventListener("click", () => {
       showDashboardForm("liveForm");
