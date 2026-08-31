@@ -403,6 +403,20 @@ dialog {
   margin-top: 0.2rem;
 }
 
+.searchbar input {
+  min-width: 0;
+}
+
+.search-results {
+  min-width: 0;
+}
+
+.search-results-heading {
+  color: var(--muted);
+  margin: 0.4rem 0 0;
+  font-size: 0.9rem;
+}
+
 .searchbar input,
 .form-card input,
 .form-card textarea,
@@ -1943,6 +1957,14 @@ dialog::backdrop {
   gap: 0.8rem;
 }
 
+.embed-artwork {
+  width: min(280px, 100%);
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 12px;
+  margin: 0 auto;
+}
+
 .embed-label {
   margin: 0;
   font-size: 0.9rem;
@@ -1957,6 +1979,24 @@ dialog::backdrop {
   max-width: 100%;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+@media (max-width: 500px) {
+  .searchbar {
+    gap: 0.45rem;
+  }
+
+  .searchbar .btn {
+    width: 100%;
+  }
+
+  .search-results .release-card {
+    min-width: 0;
+  }
+
+  .embed-container iframe {
+    height: 260px;
+  }
 }
 
 .embed-link {

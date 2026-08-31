@@ -6,6 +6,14 @@ const { detectAndExtractEmbed } = require("../utils/embed");
 
 const releaseTypes = ["single", "ep", "album", "mixtape", "dj_mix", "video", "live_performance"];
 
+function parsePositiveId(value, label = "id") {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new ApiError(400, `${label} must be a positive integer`);
+  }
+  return parsed;
+}
+
 /**
  * Upload a multer memory-storage file to R2 and return the stored object key.
  * Throws ApiError(502) if the R2 upload fails, preventing a broken DB record.
@@ -48,7 +56,7 @@ async function createRelease(req, res, next) {
         genre,
         category,
         country,
-        artworkPath: null,
+        artworkPath: req.files?.artwork?.[0] ? await uploadFileToR2(req.files.artwork[0]) : null,
         mediaAudioPath: null,
         mediaVideoPath: null,
         scheduledAt: scheduledAt || null,
@@ -99,7 +107,7 @@ async function createRelease(req, res, next) {
 
 async function editRelease(req, res, next) {
   try {
-    const releaseId = Number(req.params.id);
+    const releaseId = parsePositiveId(req.params.id, "Release id");
     const { embedUrl, contentType } = req.body;
     const payload = {};
 
@@ -135,7 +143,7 @@ async function editRelease(req, res, next) {
 
 async function deleteRelease(req, res, next) {
   try {
-    const releaseId = Number(req.params.id);
+    const releaseId = parsePositiveId(req.params.id, "Release id");
     const deleted = await releaseModel.softDeleteRelease(releaseId, req.user.id);
     if (!deleted) throw new ApiError(404, "Release not found");
     res.json({ success: true, message: "Release deleted" });
@@ -146,7 +154,8 @@ async function deleteRelease(req, res, next) {
 
 async function getRelease(req, res, next) {
   try {
-    const release = await releaseModel.getReleaseById(Number(req.params.id));
+    const releaseId = parsePositiveId(req.params.id, "Release id");
+    const release = await releaseModel.getReleaseById(releaseId);
     if (!release) throw new ApiError(404, "Release not found");
     res.json({ success: true, release });
   } catch (error) {

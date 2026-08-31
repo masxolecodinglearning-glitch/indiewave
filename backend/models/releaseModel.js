@@ -125,7 +125,16 @@ async function listReleases({
   }
   if (q) {
     values.push(`%${q}%`);
-    where.push(`(r.title ILIKE $${values.length} OR r.description ILIKE $${values.length} OR u.stage_name ILIKE $${values.length})`);
+    where.push(`(
+      r.title ILIKE $${values.length}
+      OR r.description ILIKE $${values.length}
+      OR r.genre ILIKE $${values.length}
+      OR r.category ILIKE $${values.length}
+      OR r.country ILIKE $${values.length}
+      OR r.embed_provider ILIKE $${values.length}
+      OR r.embed_url ILIKE $${values.length}
+      OR u.stage_name ILIKE $${values.length}
+    )`);
   }
 
   values.push(limit, offset);

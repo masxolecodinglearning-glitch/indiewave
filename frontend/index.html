@@ -56,9 +56,10 @@
           </div>
 
           <form id="searchForm" class="searchbar">
-            <input id="searchInput" type="search" placeholder="Search artists, songs, releases, genres..." />
+            <input id="searchInput" type="search" placeholder="Search artists, songs, releases, genres..." aria-label="Search IndieWave releases" />
             <button class="btn btn-primary" type="submit">Search</button>
           </form>
+          <div id="searchResults" class="search-results" aria-live="polite"></div>
         </div>
 
         <aside class="hero-panel glass-dark">
@@ -412,8 +413,6 @@
               <input name="audio" type="file" accept="audio/mpeg" />
               <label>Video (MP4)</label>
               <input name="video" type="file" accept="video/mp4" />
-              <label>Artwork</label>
-              <input name="artwork" type="file" accept="image/png,image/jpeg,image/webp" />
             </div>
 
             <!-- Embed section (hidden by default) -->
@@ -423,6 +422,11 @@
               <button type="button" id="detectPlatformBtn" class="btn btn-outline">Detect Platform</button>
               <p class="form-note">Supported: YouTube videos, Spotify tracks/albums/playlists, Ditto pre-save links, DistroKid pre-save links</p>
               <div id="embedPreviewContainer" class="hidden"></div>
+            </div>
+
+            <div>
+              <label>Artwork</label>
+              <input name="artwork" type="file" accept="image/png,image/jpeg,image/webp" />
             </div>
 
             <div id="releaseUploadStatus" class="upload-status hidden" aria-live="polite" aria-atomic="true">

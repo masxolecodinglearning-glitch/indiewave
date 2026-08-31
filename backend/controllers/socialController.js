@@ -3,9 +3,17 @@ const socialModel = require("../models/socialModel");
 const releaseModel = require("../models/releaseModel");
 const notificationModel = require("../models/notificationModel");
 
+function parsePositiveId(value, label) {
+  const id = Number(value);
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new ApiError(400, `${label} must be a positive integer`);
+  }
+  return id;
+}
+
 async function followArtist(req, res, next) {
   try {
-    const artistId = Number(req.params.artistId);
+    const artistId = parsePositiveId(req.params.artistId, "Artist id");
     const result = await socialModel.toggleFollow(req.user.id, artistId);
 
     if (result.followed) {
@@ -25,7 +33,7 @@ async function followArtist(req, res, next) {
 
 async function likeRelease(req, res, next) {
   try {
-    const releaseId = Number(req.params.releaseId);
+    const releaseId = parsePositiveId(req.params.releaseId, "Release id");
     const release = await releaseModel.getReleaseById(releaseId);
     if (!release) throw new ApiError(404, "Release not found");
 
@@ -48,7 +56,7 @@ async function likeRelease(req, res, next) {
 
 async function addComment(req, res, next) {
   try {
-    const releaseId = Number(req.params.releaseId);
+    const releaseId = parsePositiveId(req.params.releaseId, "Release id");
     const release = await releaseModel.getReleaseById(releaseId);
     if (!release) throw new ApiError(404, "Release not found");
 
@@ -71,7 +79,11 @@ async function addComment(req, res, next) {
 
 async function listComments(req, res, next) {
   try {
-    const comments = await socialModel.getComments(Number(req.params.releaseId));
+    const releaseId = parsePositiveId(req.params.releaseId, "Release id");
+    const release = await releaseModel.getReleaseById(releaseId);
+    if (!release) throw new ApiError(404, "Release not found");
+
+    const comments = await socialModel.getComments(releaseId);
     res.json({ success: true, comments });
   } catch (error) {
     next(error);
