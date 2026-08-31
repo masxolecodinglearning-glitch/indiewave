@@ -377,6 +377,7 @@ function renderReleaseCard(release, mine = false) {
     distrokid: "DistroKid"
   }[release.embed_provider];
   const isPreSaveOnly = release.embed_provider === "ditto" || release.embed_provider === "distrokid";
+  const isUploaded = release.content_type === "upload";
   const embedBadge = release.content_type === "embed" && embedProviderLabel
     ? `<p class="release-meta embed-label">${isPreSaveOnly ? "Pre-Save via" : "Embedded from"} ${escapeHtml(embedProviderLabel)}</p>`
     : "";
@@ -394,7 +395,9 @@ function renderReleaseCard(release, mine = false) {
         <button class="chip" onclick="playRelease(${releaseId})">Play</button>
         <button class="chip" onclick="trackListen(${releaseId})">Listen</button>
         <button class="chip" onclick="trackView(${releaseId})">View</button>
-        <button class="chip" onclick="downloadRelease(${releaseId})">Download</button>
+        <button class="chip" onclick="shareRelease(${releaseId})">Share</button>
+        ${isUploaded ? `<button class="chip" onclick="downloadRelease(${releaseId})">Download</button>` : ""}
+        ${isPreSaveOnly ? `<a class="chip" href="${escapeHtml(release.embed_url)}" target="_blank" rel="noopener noreferrer">Pre-Save</a>` : ""}
         <button class="chip" onclick="likeRelease(${releaseId})">Like</button>
         <button class="chip" onclick="showComments(${releaseId})">Comments</button>
         ${state.user && Number(release.artist_id) !== Number(state.user.id) ? `<button class="chip" onclick="openConversation(${release.artist_id})">Message</button>` : ""}
@@ -403,6 +406,19 @@ function renderReleaseCard(release, mine = false) {
       </div>
     </article>
   `;
+}
+
+function renderSearchResults(releases, query) {
+  const container = $("searchResults");
+  if (!container) return;
+  const items = Array.isArray(releases) ? releases : [];
+  if (!query) {
+    container.innerHTML = "";
+    return;
+  }
+  container.innerHTML = items.length
+    ? `<p class="search-results-heading">IndieWave releases matching “${escapeHtml(query)}”</p><div class="release-grid">${items.map((release) => renderReleaseCard(release)).join("")}</div>`
+    : `<p class="search-results-heading">No IndieWave releases match “${escapeHtml(query)}”.</p>`;
 }
 
 function renderArtistCard(artist) {
@@ -425,6 +441,7 @@ async function loadReleases(filters = {}) {
   const query = new URLSearchParams({ sort: state.sort, ...filters }).toString();
   const data = await api(`/releases?${query}`);
   state.releases = data.releases;
+  if (filters.q !== undefined) renderSearchResults(data.releases, filters.q);
 
   $('releaseGrid').innerHTML =
     data.releases.map((release) => renderReleaseCard(release)).join("") ||
@@ -1016,11 +1033,67 @@ async function loadConversationMessages() {
 }
 
 window.downloadRelease = async function downloadRelease(releaseId) {
-  const result = await api(`/engagement/releases/${releaseId}/download`, { method: "POST" });
-  if (result.filePath) {
-    window.open(`http://localhost:5000/${result.filePath}`, "_blank", "noopener,noreferrer");
+  try {
+    const result = await api(`/engagement/releases/${releaseId}/download`, { method: "POST" });
+    if (result.downloadUrl) window.open(result.downloadUrl, "_blank", "noopener,noreferrer");
+  } catch (error) {
+    notify(error.message);
   }
 };
+
+window.shareRelease = async function shareRelease(releaseId) {
+  let release = [...state.releases, ...state.trendingReleases].find((item) => Number(item.id) === Number(releaseId)) || state.currentRelease;
+
+  if (!release) {
+    try {
+      const data = await api(`/releases/${releaseId}`);
+      release = data.release;
+    } catch (error) {
+      notify(error.message || "This release is unavailable.");
+      return;
+    }
+  }
+
+  const url = new URL(window.location.href);
+  url.search = "";
+  url.hash = "#home";
+  url.searchParams.set("release", String(releaseId));
+  const shareData = {
+    title: release.title || "IndieWave release",
+    text: `${release.title || "Release"} by ${release.stage_name || "Unknown Artist"} on IndieWave`,
+    url: url.toString()
+  };
+
+  try {
+    if (navigator.share) await navigator.share(shareData);
+    else throw new Error("native share unavailable");
+  } catch (error) {
+    if (error.name === "AbortError") return;
+    try {
+      await navigator.clipboard.writeText(url.toString());
+      notify("Release link copied");
+    } catch (copyError) {
+      window.prompt("Copy this release link", url.toString());
+    }
+  }
+};
+
+async function openSharedRelease() {
+  const releaseParam = new URLSearchParams(window.location.search).get("release");
+  if (!releaseParam || !/^\d+$/.test(releaseParam)) return;
+
+  try {
+    const data = await api(`/releases/${releaseParam}`);
+    const release = data.release;
+    state.releases = [release, ...state.releases.filter((item) => Number(item.id) !== Number(release.id))];
+    state.currentRelease = release;
+    renderSearchResults([release], "Shared release");
+    window.playRelease(release.id);
+    document.getElementById("searchResults")?.scrollIntoView({ behavior: "smooth", block: "center" });
+  } catch (error) {
+    notify("This release is unavailable.");
+  }
+}
 
 window.likeRelease = async function likeRelease(releaseId) {
   if (!state.token) {
@@ -1276,7 +1349,10 @@ function renderEmbedContent(release) {
   }[release.embed_provider] || 'External';
   const isPreSaveOnly = release.embed_provider === 'ditto' || release.embed_provider === 'distrokid';
 
-  let html = `<div class="embed-container"><p class="embed-label">${isPreSaveOnly ? 'Pre-Save via' : 'Embedded from'} ${escapeHtml(providerLabel)}</p>`;
+  const artwork = release.artwork_path
+    ? `<img class="embed-artwork" src="${escapeHtml(mediaUrl(release.artwork_path))}" alt="${escapeHtml(release.title || "Release")} artwork" />`
+    : '';
+  let html = `<div class="embed-container"><p class="embed-label">${isPreSaveOnly ? 'Pre-Save via' : 'Embedded from'} ${escapeHtml(providerLabel)}</p>${artwork}`;
   if (embedHtml) {
     html += embedHtml;
   }
@@ -1374,6 +1450,20 @@ function wireEvents() {
     const query = $("searchInput").value.trim();
     await loadReleases(query ? { q: query } : {});
     await loadTrendingReleases(query ? { q: query } : {});
+  });
+
+  let searchTimer;
+  $("searchInput").addEventListener("input", () => {
+    clearTimeout(searchTimer);
+    const query = $("searchInput").value.trim();
+    searchTimer = setTimeout(async () => {
+      try {
+        await loadReleases(query ? { q: query } : {});
+        await loadTrendingReleases(query ? { q: query } : {});
+      } catch (error) {
+        notify(error.message);
+      }
+    }, 180);
   });
 
   document.querySelectorAll(".trending-chip").forEach((button) => {
@@ -2127,6 +2217,7 @@ async function bootstrap() {
   }
 
   try {
+    await openSharedRelease();
     await initializeData();
   } catch (error) {
     notify(error.message);
