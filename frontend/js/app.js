@@ -390,11 +390,9 @@ function renderReleaseCard(release, mine = false) {
       <p class="release-meta">${escapeHtml(release.stage_name || "Unknown Artist")} â€¢ ${escapeHtml(releaseTypeLabel(release.type))}</p>
       <p class="release-meta">${escapeHtml(release.genre)} â€¢ ${escapeHtml(release.country)}</p>
       <p class="release-meta">Likes: ${release.likes || 0} | Comments: ${release.comments || 0}</p>
-      <p class="release-meta">Downloads: ${release.download_count || 0} | Views: ${(release.view_count || 0) + (release.video_view_count || 0)}</p>
+      <p class="release-meta">Downloads: ${release.download_count || 0} | Plays: ${release.listen_count || 0}</p>
       <div class="release-actions">
         <button class="chip" onclick="playRelease(${releaseId})">Play</button>
-        <button class="chip" onclick="trackListen(${releaseId})">Listen</button>
-        <button class="chip" onclick="trackView(${releaseId})">View</button>
         <button class="chip" onclick="shareRelease(${releaseId})">Share</button>
         ${isUploaded ? `<button class="chip" onclick="downloadRelease(${releaseId})">Download</button>` : ""}
         ${isPreSaveOnly ? `<a class="chip" href="${escapeHtml(release.embed_url)}" target="_blank" rel="noopener noreferrer">Pre-Save</a>` : ""}
@@ -731,6 +729,11 @@ window.playRelease = function playRelease(releaseId) {
   const audio = $("musicPlayer");
   const video = $("videoPlayer");
 
+  if (audio) {
+    audio.dataset.playRecorded = "false";
+    audio.dataset.playRecordedFor = "";
+  }
+
   if (hasVideo) {
     audio.pause();
     video.classList.remove("hidden");
@@ -751,7 +754,6 @@ window.playRelease = function playRelease(releaseId) {
     audio.load();
   }
   audio.play().catch(() => {});
-  trackListen(releaseId).catch(() => {});
   updateVisualizerState();
 };
 
@@ -793,6 +795,26 @@ function syncPlayerProgress() {
   [$("globalDuration"), $("nowPlayingDuration")].forEach((element) => {
     if (element) element.textContent = formatTime(audio.duration);
   });
+
+  const releaseId = Number(state.currentReleaseId);
+  if (!releaseId || !audio.dataset.playRecorded || !audio.dataset.playRecordedFor) {
+    if (audio.currentTime >= 30 && (!audio.dataset.playRecorded || audio.dataset.playRecordedFor !== String(releaseId))) {
+      audio.dataset.playRecorded = "true";
+      audio.dataset.playRecordedFor = String(releaseId);
+      trackListen(releaseId).catch(() => {});
+    }
+    return;
+  }
+
+  if (audio.dataset.playRecorded === "true" && audio.dataset.playRecordedFor === String(releaseId)) {
+    return;
+  }
+
+  if (audio.currentTime >= 30) {
+    audio.dataset.playRecorded = "true";
+    audio.dataset.playRecordedFor = String(releaseId);
+    trackListen(releaseId).catch(() => {});
+  }
 }
 
 function syncPlayerControls() {
@@ -1597,7 +1619,9 @@ function wireEvents() {
       updateVisualizerState();
       syncPlayerControls();
     });
-    audio.addEventListener("timeupdate", syncPlayerProgress);
+    audio.addEventListener("timeupdate", () => {
+      syncPlayerProgress();
+    });
     audio.addEventListener("loadedmetadata", syncPlayerProgress);
     audio.addEventListener("durationchange", syncPlayerProgress);
   }
