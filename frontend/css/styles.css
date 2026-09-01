@@ -542,6 +542,60 @@ textarea::placeholder {
   padding: 0.92rem;
 }
 
+@media (max-width: 768px) {
+  .release-grid,
+  .artist-grid,
+  .genre-grid,
+  .music-type-grid,
+  .mini-list {
+    display: flex;
+    overflow-x: auto;
+    gap: 0.7rem;
+    padding-bottom: 0.4rem;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .release-grid > .release-card,
+  .artist-grid > .artist-card,
+  .genre-grid > .genre-card,
+  .mini-list > .release-card,
+  .music-type-card {
+    flex: 0 0 190px;
+    min-width: 190px;
+    max-width: 190px;
+    scroll-snap-align: start;
+  }
+
+  .music-type-grid {
+    padding-inline: 0.15rem;
+  }
+
+  .music-type-card {
+    min-height: 188px;
+  }
+
+  .type-bg {
+    padding-top: 1rem;
+  }
+
+  .type-label {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 500px) {
+  .release-grid > .release-card,
+  .artist-grid > .artist-card,
+  .genre-grid > .genre-card,
+  .mini-list > .release-card,
+  .music-type-card {
+    flex-basis: 76%;
+    min-width: 76%;
+    max-width: 76%;
+  }
+}
+
 .release-card,
 .artist-card,
 .genre-card,
