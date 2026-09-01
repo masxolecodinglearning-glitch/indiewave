@@ -519,6 +519,22 @@ textarea::placeholder {
   gap: 0.9rem;
 }
 
+.release-grid.release-carousel {
+  display: flex;
+  overflow-x: auto;
+  gap: 0.9rem;
+  padding-bottom: 0.45rem;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+
+.release-grid.release-carousel > .release-card {
+  flex: 0 0 240px;
+  max-width: 240px;
+  min-width: 240px;
+  scroll-snap-align: start;
+}
+
 .release-card,
 .artist-card,
 .card,
@@ -614,9 +630,22 @@ textarea::placeholder {
 }
 
 .mini-list {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.45rem;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
   font-size: 0.92rem;
   color: var(--muted);
   min-height: 96px;
+}
+
+.mini-list > .release-card {
+  flex: 0 0 220px;
+  max-width: 220px;
+  min-width: 220px;
+  scroll-snap-align: start;
 }
 
 .chips-wrap {
@@ -1850,6 +1879,15 @@ dialog::backdrop {
 
   .visualizer-bars .bar {
     width: 5px;
+  }
+}
+
+@media (max-width: 768px) {
+  .mini-list > .release-card,
+  .release-grid.release-carousel > .release-card {
+    flex-basis: 74%;
+    max-width: 74%;
+    min-width: 74%;
   }
 }
 

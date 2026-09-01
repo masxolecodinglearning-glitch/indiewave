@@ -479,7 +479,7 @@ function renderCategoryLists(releases) {
 
   const emptyHtml = '<p class="type-empty-state">No releases yet.<br><a href="#dashboard" class="type-upload-link">Upload your music</a></p>';
   Object.entries(groups).forEach(([id, list]) => {
-    $(id).innerHTML = list.slice(0, 6).map((release) => `<p>${escapeHtml(release.title)}</p>`).join("") || emptyHtml;
+    $(id).innerHTML = list.slice(0, 6).map((release) => renderReleaseCard(release)).join("") || emptyHtml;
   });
 }
 
