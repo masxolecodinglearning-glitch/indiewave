@@ -1,6 +1,9 @@
 const { GoogleGenAI } = require("@google/genai");
 
-const AI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const configuredModel = String(process.env.GEMINI_MODEL || "").trim();
+const AI_MODEL = configuredModel === "gemini-2.5-flash"
+  ? "gemini-3.6-flash"
+  : configuredModel || "gemini-3.6-flash";
 const MAX_PROMPT_CHARS = 4000;
 
 let aiClient = null;
