@@ -1,5 +1,6 @@
 const ApiError = require("../utils/apiError");
 const adminModel = require("../models/adminModel");
+const releaseModel = require("../models/releaseModel");
 
 async function dashboard(req, res, next) {
   try {
@@ -13,11 +14,17 @@ async function dashboard(req, res, next) {
 
 async function createReport(req, res, next) {
   try {
+    const targetId = Number(req.body.targetId);
+    if (!Number.isInteger(targetId) || targetId <= 0) throw new ApiError(400, "Target id must be a positive integer");
+    if (req.body.targetType === "track") {
+      const track = await releaseModel.getTrackById(targetId);
+      if (!track) throw new ApiError(404, "Track not found");
+    }
     const report = await adminModel.createReport({
       reporterId: req.user.id,
       reportType: req.body.reportType,
       targetType: req.body.targetType,
-      targetId: req.body.targetId,
+      targetId,
       reason: req.body.reason,
       details: req.body.details
     });

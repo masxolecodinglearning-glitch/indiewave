@@ -9,7 +9,10 @@ const state = {
   releases: [],
   trendingReleases: [],
   currentReleaseId: null,
+  currentTrackId: null,
+  listeningSessionId: null,
   currentRelease: null,
+  currentTrackIndex: null,
   commentsReleaseId: null,
   activeConversationId: null,
   activeConversationUser: null,
@@ -45,7 +48,6 @@ function setUploadStatus(statusText, detail = "") {
   const statusDetail = $("releaseUploadStatusDetail");
 
   if (!status || !statusTextEl || !statusBar || !statusDetail) return;
-
   status.classList.remove("hidden");
   statusTextEl.textContent = statusText;
   statusDetail.textContent = detail || "";
@@ -80,7 +82,7 @@ function showUploadNotification(kind, title, message) {
   const toast = document.createElement("div");
   toast.className = `upload-toast upload-toast-${kind}`;
   toast.innerHTML = `
-    <button type="button" class="upload-toast-close" aria-label="Close notification">✕</button>
+    <button class="upload-toast-close" aria-label="Close notification">✕</button>
     <strong>${escapeHtml(title)}</strong>
     <p>${escapeHtml(message)}</p>
   `;
@@ -378,12 +380,16 @@ function renderReleaseCard(release, mine = false) {
   }[release.embed_provider];
   const isPreSaveOnly = release.embed_provider === "ditto" || release.embed_provider === "distrokid";
   const isUploaded = release.content_type === "upload";
+  const isMultiTrackRelease = ["ep", "album", "mixtape", "dj_mix"].includes(release.type);
   const embedBadge = release.content_type === "embed" && embedProviderLabel
     ? `<p class="release-meta embed-label">${isPreSaveOnly ? "Pre-Save via" : "Embedded from"} ${escapeHtml(embedProviderLabel)}</p>`
     : "";
 
+  const actionStop = "event.stopPropagation();";
+  const cardOnClick = isMultiTrackRelease ? `onclick="openReleaseDetail(${releaseId})"` : "";
+
   return `
-    <article class="glass release-card">
+    <article class="glass release-card" ${cardOnClick} style="${isMultiTrackRelease ? "cursor:pointer;" : ""}">
       ${artwork}
       <h3>${escapeHtml(release.title)}</h3>
       ${embedBadge}
@@ -392,15 +398,15 @@ function renderReleaseCard(release, mine = false) {
       <p class="release-meta">Likes: ${release.likes || 0} | Comments: ${release.comments || 0}</p>
       <p class="release-meta">Downloads: ${release.download_count || 0} | Plays: ${release.listen_count || 0}</p>
       <div class="release-actions">
-        <button class="chip" onclick="playRelease(${releaseId})">Play</button>
-        <button class="chip" onclick="shareRelease(${releaseId})">Share</button>
-        ${isUploaded ? `<button class="chip" onclick="downloadRelease(${releaseId})">Download</button>` : ""}
+        <button class="chip" onclick="${actionStop} playRelease(${releaseId})">Play</button>
+        <button class="chip" onclick="${actionStop} shareRelease(${releaseId})">Share</button>
+        ${isUploaded ? `<button class="chip" onclick="${actionStop} downloadRelease(${releaseId})">Download</button>` : ""}
         ${isPreSaveOnly ? `<a class="chip" href="${escapeHtml(release.embed_url)}" target="_blank" rel="noopener noreferrer">Pre-Save</a>` : ""}
-        <button class="chip" onclick="likeRelease(${releaseId})">Like</button>
-        <button class="chip" onclick="showComments(${releaseId})">Comments</button>
-        ${state.user && Number(release.artist_id) !== Number(state.user.id) ? `<button class="chip" onclick="openConversation(${release.artist_id})">Message</button>` : ""}
-        ${state.user ? `<button class="chip" onclick="openReportForRelease(${releaseId})">Report</button>` : ""}
-        ${mine ? `<button class=\"chip\" onclick=\"deleteRelease(${releaseId})\">Delete</button>` : ""}
+        <button class="chip" onclick="${actionStop} likeRelease(${releaseId})">Like</button>
+        <button class="chip" onclick="${actionStop} showComments(${releaseId})">Comments</button>
+        ${state.user && Number(release.artist_id) !== Number(state.user.id) ? `<button class="chip" onclick="${actionStop} openConversation(${release.artist_id})">Message</button>` : ""}
+        ${state.user ? `<button class="chip" onclick="${actionStop} openReportForRelease(${releaseId})">Report</button>` : ""}
+        ${mine ? `<button class="chip" onclick="${actionStop} deleteRelease(${releaseId})">Delete</button>` : ""}
       </div>
     </article>
   `;
@@ -623,7 +629,80 @@ async function updateProfile(form) {
   notify("Profile updated");
 }
 
+function stripAudioExtension(filename) {
+  return String(filename || "").replace(/\.[^/.]+$/, "");
+}
+
+function syncReleaseTrackQueueFromInput() {
+  const input = document.getElementById("releaseAudioInput");
+  const queue = Array.from(input?.files || []).map((file, index) => ({
+    id: `${file.name}-${index}-${file.lastModified || Date.now()}`,
+    file,
+    title: stripAudioExtension(file.name) || `Track ${index + 1}`
+  }));
+  state.releaseTrackQueue = queue;
+  renderReleaseTrackList();
+}
+
+function renderReleaseTrackList() {
+  const container = document.getElementById("releaseTrackList");
+  if (!container) return;
+
+  if (!state.releaseTrackQueue.length) {
+    container.innerHTML = '<p class="release-meta">Select one or more MP3 files to build your release tracklist.</p>';
+    return;
+  }
+
+  container.innerHTML = state.releaseTrackQueue.map((track, index) => `
+    <div class="release-track-row" data-track-row-id="${escapeHtml(track.id)}">
+      <div class="release-track-number">${index + 1}</div>
+      <div class="release-track-main">
+        <div class="release-track-file">${escapeHtml(track.file.name)}</div>
+        <input type="text" value="${escapeHtml(track.title)}" data-track-title-index="${index}" placeholder="Track title" aria-label="Track title for ${escapeHtml(track.file.name)}" />
+      </div>
+      <button type="button" class="chip" data-track-remove-index="${index}">Remove</button>
+    </div>
+  `).join("");
+
+  container.querySelectorAll("input[data-track-title-index]").forEach((input) => {
+    input.addEventListener("input", (event) => {
+      const idx = Number(event.target.dataset.trackTitleIndex);
+      if (Number.isInteger(idx) && state.releaseTrackQueue[idx]) {
+        state.releaseTrackQueue[idx].title = event.target.value.trim() || stripAudioExtension(state.releaseTrackQueue[idx].file.name) || `Track ${idx + 1}`;
+      }
+    });
+  });
+
+  container.querySelectorAll("button[data-track-remove-index]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const idx = Number(button.dataset.trackRemoveIndex);
+      if (Number.isInteger(idx)) {
+        state.releaseTrackQueue.splice(idx, 1);
+        const input = document.getElementById("releaseAudioInput");
+        const dataTransfer = new DataTransfer();
+        state.releaseTrackQueue.forEach((track) => dataTransfer.items.add(track.file));
+        if (input) input.files = dataTransfer.files;
+        renderReleaseTrackList();
+      }
+    });
+  });
+}
+
+function syncReleaseTrackTitlesIntoForm(form) {
+  const existing = form.querySelectorAll('input[name="trackTitles"]').forEach((input) => input.remove());
+  if (!state.releaseTrackQueue.length) return;
+
+  state.releaseTrackQueue.forEach((track) => {
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = "trackTitles";
+    input.value = track.title.trim() || stripAudioExtension(track.file.name) || "Untitled Track";
+    form.appendChild(input);
+  });
+}
+
 async function uploadRelease(form) {
+  syncReleaseTrackTitlesIntoForm(form);
   const data = new FormData(form);
   setUploadStatus("Uploading...", "Uploading your media...");
 
@@ -644,6 +723,8 @@ async function uploadRelease(form) {
     await loadReleases();
     await loadMyDashboard();
     form.reset();
+    state.releaseTrackQueue = [];
+    renderReleaseTrackList();
     return response;
   } catch (error) {
     console.error("Upload release failed:", error);
@@ -690,6 +771,9 @@ window.playRelease = function playRelease(releaseId) {
 
   state.currentReleaseId = Number(releaseId);
   state.currentRelease = release;
+  state.currentTrackId = null;
+  state.currentTrackIndex = null;
+  state.listeningSessionId = null;
   $('nowPlayingTitle').textContent = `${release.title} - ${release.stage_name}`;
 
   // Handle embedded content (YouTube, Spotify) and pre-save links (Ditto, DistroKid)
@@ -797,24 +881,15 @@ function syncPlayerProgress() {
   });
 
   const releaseId = Number(state.currentReleaseId);
-  if (!releaseId || !audio.dataset.playRecorded || !audio.dataset.playRecordedFor) {
-    if (audio.currentTime >= 30 && (!audio.dataset.playRecorded || audio.dataset.playRecordedFor !== String(releaseId))) {
-      audio.dataset.playRecorded = "true";
-      audio.dataset.playRecordedFor = String(releaseId);
-      trackListen(releaseId).catch(() => {});
-    }
+  if (!releaseId || audio.currentTime < 30 || audio.dataset.playRecorded === "true") return;
+
+  audio.dataset.playRecorded = "true";
+  if (state.currentTrackId && state.listeningSessionId) {
+    trackListenForTrack(releaseId, state.currentTrackId, audio.currentTime, state.listeningSessionId).catch(() => {});
     return;
   }
 
-  if (audio.dataset.playRecorded === "true" && audio.dataset.playRecordedFor === String(releaseId)) {
-    return;
-  }
-
-  if (audio.currentTime >= 30) {
-    audio.dataset.playRecorded = "true";
-    audio.dataset.playRecordedFor = String(releaseId);
-    trackListen(releaseId).catch(() => {});
-  }
+  trackListen(releaseId).catch(() => {});
 }
 
 function syncPlayerControls() {
@@ -880,6 +955,22 @@ function nextTrack() {
 
 window.trackListen = async function trackListen(releaseId) {
   await api(`/engagement/releases/${releaseId}/listen`, { method: "POST" });
+};
+
+window.trackListenForTrack = async function trackListenForTrack(releaseId, trackId, elapsedSeconds, sessionId) {
+  const result = await api(`/engagement/releases/${releaseId}/tracks/${trackId}/listen`, {
+    method: "POST",
+    body: JSON.stringify({ elapsedSeconds, sessionId })
+  });
+
+  if (result.recorded) {
+    const count = document.getElementById(`release-track-play-count-${releaseId}-${trackId}`);
+    if (count) {
+      count.dataset.playCount = String(Number(count.dataset.playCount || 0) + 1);
+      count.textContent = `Plays: ${count.dataset.playCount}`;
+    }
+  }
+  return result;
 };
 
 window.trackView = async function trackView(releaseId) {
@@ -1054,6 +1145,196 @@ async function loadConversationMessages() {
   }
 }
 
+function buildReleaseTrackLabel(release, index) {
+  const tracks = Array.isArray(release?.tracks) ? release.tracks : [];
+  const track = tracks[index] || null;
+  if (track && track.title) return track.title;
+  if (release && release.title) return `${release.title} ${index + 1}`;
+  return `Track ${index + 1}`;
+}
+
+function buildReleaseTrackSource(release, index = 0) {
+  const tracks = Array.isArray(release?.tracks) ? release.tracks : [];
+  const track = tracks[index] || null;
+  if (track && track.audio_path) return mediaUrl(track.audio_path);
+  if (release && release.media_audio_path) return mediaUrl(release.media_audio_path);
+  return "";
+}
+
+function getTrackActionKey(releaseId, trackIndex = 0) {
+  return `${Number(releaseId)}:${Number(trackIndex)}`;
+}
+
+function createListeningSessionId() {
+  if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+  return `listen-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+window.openReleaseDetail = async function openReleaseDetail(releaseId) {
+  try {
+    const match = [...state.releases, ...state.trendingReleases].find((item) => Number(item.id) === Number(releaseId));
+    const data = match ? { release: match } : await api(`/releases/${releaseId}`);
+    const release = data.release;
+    if (!release) return;
+
+    const dialog = document.getElementById("releaseDetailDialog");
+    if (!dialog) return;
+
+    const artwork = release.artwork_path ? `<img src="${mediaUrl(release.artwork_path)}" alt="${escapeHtml(release.title)}" style="width:100%;max-height:260px;object-fit:cover;border-radius:12px;" />` : "";
+    const tracks = Array.isArray(release.tracks) && release.tracks.length ? release.tracks : (release.media_audio_path ? [{ id: null, title: release.title, audio_path: release.media_audio_path }] : []);
+
+    dialog.innerHTML = `
+      <button type="button" class="form-close" onclick="closeReleaseDetail()" aria-label="Close release details">✕</button>
+      <div style="display:grid;gap:16px;">
+        ${artwork}
+        <div>
+          <p class="section-kicker">${escapeHtml(releaseTypeLabel(release.type))}</p>
+          <h2>${escapeHtml(release.title || "Untitled release")}</h2>
+          <p class="release-meta">${escapeHtml(release.stage_name || "Unknown Artist")} • ${escapeHtml(release.genre || "")}${release.genre && release.country ? " • " : ""}${escapeHtml(release.country || "")}</p>
+        </div>
+        <div style="display:grid;gap:10px;">
+          ${tracks.map((track, index) => `
+            <div style="display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:10px;border:1px solid rgba(255,255,255,0.08);border-radius:10px;background:rgba(255,255,255,0.02);">
+              <span class="release-meta" style="min-width:30px;">#${index + 1}</span>
+              <div>
+                <strong>${escapeHtml(track.title || buildReleaseTrackLabel(release, index))}</strong>
+                <span id="release-track-play-count-${release.id}-${track.id || `fallback-${index}`}" class="release-meta" data-play-count="${Number(track.listen_count || 0)}">Plays: ${Number(track.listen_count || 0)}</span>
+              </div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+                <button type="button" class="chip" onclick="event.stopPropagation(); playTrackFromRelease(${release.id}, ${index})">Play</button>
+                <button type="button" class="chip" onclick="event.stopPropagation(); shareTrackFromRelease(${release.id}, ${index})">Share</button>
+                ${release.content_type === "upload" ? `<button type="button" class="chip" onclick="event.stopPropagation(); downloadTrackFromRelease(${release.id}, ${index})">Download</button>` : ""}
+                <button type="button" class="chip" onclick="event.stopPropagation(); likeTrackFromRelease(${release.id}, ${index})">Like</button>
+                <button type="button" class="chip" onclick="event.stopPropagation(); showTrackComments(${release.id}, ${index})">Comments</button>
+                ${state.user ? `<button type="button" class="chip" onclick="event.stopPropagation(); openReportForTrack(${release.id}, ${index})">Report</button>` : ""}
+              </div>
+            </div>
+          `).join("") || '<p class="release-meta">No tracks available.</p>'}
+        </div>
+      </div>
+    `;
+
+    dialog.showModal();
+  } catch (error) {
+    notify(error.message || "This release is unavailable.");
+  }
+};
+
+window.closeReleaseDetail = function closeReleaseDetail() {
+  const dialog = document.getElementById("releaseDetailDialog");
+  if (dialog) dialog.close();
+};
+
+window.playTrackFromRelease = async function playTrackFromRelease(releaseId, trackIndex = 0) {
+  let release = [...state.releases, ...state.trendingReleases].find((item) => Number(item.id) === Number(releaseId));
+  if (!release) {
+    try {
+      const data = await api(`/releases/${releaseId}`);
+      release = data.release;
+    } catch (error) {
+      notify(error.message || "This release is unavailable.");
+      return;
+    }
+  }
+
+  if (!release) return;
+  const trackTitle = buildReleaseTrackLabel(release, trackIndex);
+  const track = Array.isArray(release.tracks) ? release.tracks[trackIndex] : null;
+  const audioSrc = buildReleaseTrackSource(release, trackIndex);
+  const playbackRelease = {
+    ...release,
+    title: trackTitle,
+    media_audio_path: audioSrc ? audioSrc.replace(/^https?:.*\/api\/media\//, "") : release.media_audio_path
+  };
+
+  state.currentReleaseId = Number(releaseId);
+  state.currentRelease = playbackRelease;
+  state.currentTrackIndex = Number(trackIndex);
+  state.currentTrackKey = getTrackActionKey(releaseId, trackIndex);
+  state.currentTrackId = track && track.id ? Number(track.id) : null;
+  state.listeningSessionId = state.currentTrackId ? createListeningSessionId() : null;
+
+  const audio = document.getElementById("musicPlayer");
+  if (audio) {
+    audio.dataset.playRecorded = "false";
+    audio.dataset.playRecordedFor = "";
+    if (audioSrc) {
+      if (audio.src !== audioSrc) {
+        audio.src = audioSrc;
+        audio.load();
+      }
+      audio.play().catch(() => {});
+    }
+  }
+
+  updateGlobalPlayer(playbackRelease);
+  const nowPlayingTitle = document.getElementById("nowPlayingDialogTitle");
+  const nowPlayingArtist = document.getElementById("nowPlayingDialogArtist");
+  if (nowPlayingTitle) nowPlayingTitle.textContent = trackTitle;
+  if (nowPlayingArtist) nowPlayingArtist.textContent = `${release.stage_name || "Unknown Artist"}`;
+};
+
+window.shareTrackFromRelease = async function shareTrackFromRelease(releaseId, trackIndex = 0) {
+  let release = [...state.releases, ...state.trendingReleases].find((item) => Number(item.id) === Number(releaseId)) || state.currentRelease;
+
+  if (!release) {
+    try {
+      const data = await api(`/releases/${releaseId}`);
+      release = data.release;
+    } catch (error) {
+      notify(error.message || "This release is unavailable.");
+      return;
+    }
+  }
+
+  const trackTitle = buildReleaseTrackLabel(release, trackIndex);
+  const url = new URL(window.location.href);
+  url.search = "";
+  url.hash = "#home";
+  url.searchParams.set("release", String(releaseId));
+  url.searchParams.set("track", String(trackIndex));
+
+  const shareData = {
+    title: trackTitle || release.title || "IndieWave release",
+    text: `${trackTitle || release.title || "Release"} by ${release.stage_name || "Unknown Artist"} on IndieWave`,
+    url: url.toString()
+  };
+
+  try {
+    if (navigator.share) await navigator.share(shareData);
+    else throw new Error("native share unavailable");
+  } catch (error) {
+    if (error.name === "AbortError") return;
+    try {
+      await navigator.clipboard.writeText(url.toString());
+      notify("Track link copied");
+    } catch (copyError) {
+      window.prompt("Copy this track link", url.toString());
+    }
+  }
+};
+
+window.downloadTrackFromRelease = async function downloadTrackFromRelease(releaseId, trackIndex = 0) {
+  let release = [...state.releases, ...state.trendingReleases].find((item) => Number(item.id) === Number(releaseId)) || state.currentRelease;
+  if (!release) {
+    try {
+      const data = await api(`/releases/${releaseId}`);
+      release = data.release;
+    } catch (error) {
+      notify(error.message || "This release is unavailable.");
+      return;
+    }
+  }
+
+  const trackSrc = buildReleaseTrackSource(release, trackIndex);
+  if (trackSrc) {
+    window.open(trackSrc, "_blank", "noopener,noreferrer");
+    return;
+  }
+
+  await window.downloadRelease(releaseId);
+};
+
 window.downloadRelease = async function downloadRelease(releaseId) {
   try {
     const result = await api(`/engagement/releases/${releaseId}/download`, { method: "POST" });
@@ -1110,7 +1391,13 @@ async function openSharedRelease() {
     state.releases = [release, ...state.releases.filter((item) => Number(item.id) !== Number(release.id))];
     state.currentRelease = release;
     renderSearchResults([release], "Shared release");
-    window.playRelease(release.id);
+    const trackParam = new URLSearchParams(window.location.search).get("track");
+    const trackIndex = Number(trackParam);
+    if (Array.isArray(release.tracks) && Number.isInteger(trackIndex) && trackIndex >= 0 && trackIndex < release.tracks.length) {
+      await window.playTrackFromRelease(release.id, trackIndex);
+    } else {
+      window.playRelease(release.id);
+    }
     document.getElementById("searchResults")?.scrollIntoView({ behavior: "smooth", block: "center" });
   } catch (error) {
     notify("This release is unavailable.");
@@ -1126,6 +1413,49 @@ window.likeRelease = async function likeRelease(releaseId) {
   notify(result.liked ? "Release liked" : "Like removed");
   await loadReleases();
   await loadTrendingReleases();
+};
+
+window.likeTrackFromRelease = async function likeTrackFromRelease(releaseId, trackIndex = 0) {
+  if (!state.token) {
+    notify("Login required");
+    return;
+  }
+
+  const release = [...state.releases, ...state.trendingReleases].find((item) => Number(item.id) === Number(releaseId));
+  const track = release && Array.isArray(release.tracks) ? release.tracks[trackIndex] : null;
+  if (!track || !track.id) {
+    notify("Track engagement is unavailable");
+    return;
+  }
+
+  const result = await api(`/social/tracks/${track.id}/like`, { method: "POST" });
+  notify(result.liked ? "Track liked" : "Track like removed");
+};
+
+window.showTrackComments = async function showTrackComments(releaseId, trackIndex = 0) {
+  const release = (state.currentRelease && Number(state.currentRelease.id) === Number(releaseId) ? state.currentRelease : null) || [...state.releases, ...state.trendingReleases].find((item) => Number(item.id) === Number(releaseId));
+  const track = release && Array.isArray(release.tracks) ? release.tracks[trackIndex] : null;
+  if (!track || !track.id) {
+    notify("Track comments are unavailable");
+    return;
+  }
+
+  const data = await api(`/social/tracks/${track.id}/comments`);
+  const text = data.comments.length
+    ? data.comments.map((comment) => `${comment.stage_name}: ${comment.content}`).join("\n")
+    : "No comments yet";
+  const newComment = window.prompt(`Comments for ${track.title}:\n${text}\n\nWrite a comment (optional):`, "");
+  if (!newComment) return;
+  if (!state.token) {
+    notify("Login required to comment");
+    return;
+  }
+  await api(`/social/tracks/${track.id}/comments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content: newComment })
+  });
+  notify("Track comment added");
 };
 
 window.followArtist = async function followArtist(artistId) {
@@ -1208,6 +1538,19 @@ window.openReportForRelease = function openReportForRelease(releaseId) {
   const form = $("reportForm");
   form.targetType.value = "release";
   form.targetId.value = releaseId;
+  form.scrollIntoView({ behavior: "smooth" });
+};
+
+window.openReportForTrack = function openReportForTrack(releaseId, trackIndex = 0) {
+  const release = [...state.releases, ...state.trendingReleases].find((item) => Number(item.id) === Number(releaseId));
+  const track = release && Array.isArray(release.tracks) ? release.tracks[trackIndex] : null;
+  if (!track || !track.id) {
+    notify("Track reporting is unavailable");
+    return;
+  }
+  const form = $("reportForm");
+  form.targetType.value = "track";
+  form.targetId.value = track.id;
   form.scrollIntoView({ behavior: "smooth" });
 };
 
@@ -1451,6 +1794,13 @@ function wireEvents() {
       await loadTrendingReleases();
     }
   });
+
+  const releaseAudioInput = $("releaseAudioInput");
+  if (releaseAudioInput) {
+    releaseAudioInput.addEventListener("change", () => {
+      syncReleaseTrackQueueFromInput();
+    });
+  }
 
   const detectPlatformBtn = $("detectPlatformBtn");
   if (detectPlatformBtn) {

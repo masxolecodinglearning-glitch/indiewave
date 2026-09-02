@@ -30,6 +30,45 @@ async function uploadFileToR2(file, isProfile = false) {
   }
 }
 
+function buildFallbackTrack(release) {
+  return {
+    id: null,
+    release_id: Number(release.id),
+    track_number: 1,
+    title: release.title,
+    audio_path: release.media_audio_path,
+    duration: null,
+    created_at: release.created_at
+  };
+}
+
+function normalizeTrackTitles(rawTrackTitles, totalFiles) {
+  const values = [];
+  const rawList = Array.isArray(rawTrackTitles) ? rawTrackTitles : (rawTrackTitles === undefined || rawTrackTitles === null ? [] : [rawTrackTitles]);
+
+  rawList.forEach((entry) => {
+    if (typeof entry === "string") {
+      try {
+        const parsed = JSON.parse(entry);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((item) => values.push(item));
+          return;
+        }
+      } catch (error) {
+        // Ignore malformed JSON; treat as plain text below.
+      }
+      values.push(entry);
+    } else if (entry !== null && entry !== undefined) {
+      values.push(String(entry));
+    }
+  });
+
+  return values.slice(0, totalFiles).map((value) => {
+    const trimmed = String(value).trim();
+    return trimmed || null;
+  });
+}
+
 async function createRelease(req, res, next) {
   try {
     const { title, description, type, genre, category, country, scheduledAt, replayAvailable, embedUrl, contentType } = req.body;
@@ -67,18 +106,25 @@ async function createRelease(req, res, next) {
         embedId: embedData.embedId
       });
 
+      release.tracks = [];
       res.status(201).json({ success: true, release });
     } else {
-      // Upload flow (existing logic)
+      // Upload flow (keep the existing single release behavior while also storing track rows when audio files exist)
       const files = req.files || {};
-      const audio = files.audio?.[0];
+      const audioFiles = Array.isArray(files.audio) ? files.audio : [];
       const video = files.video?.[0];
       const artwork = files.artwork?.[0];
 
-      if (!audio && !video) {
+      if (!audioFiles.length && !video) {
         throw new ApiError(422, "At least one media file (audio or video) is required");
       }
 
+      const uploadedAudioPaths = [];
+      for (const file of audioFiles) {
+        uploadedAudioPaths.push(await uploadFileToR2(file));
+      }
+
+      const primaryAudioPath = uploadedAudioPaths[0] || null;
       const release = await releaseModel.createRelease({
         artistId: req.user.id,
         title,
@@ -88,7 +134,7 @@ async function createRelease(req, res, next) {
         category,
         country,
         artworkPath: artwork ? await uploadFileToR2(artwork) : null,
-        mediaAudioPath: audio ? await uploadFileToR2(audio) : null,
+        mediaAudioPath: primaryAudioPath,
         mediaVideoPath: video ? await uploadFileToR2(video) : null,
         scheduledAt: scheduledAt || null,
         replayAvailable: replayAvailable === "true" || replayAvailable === true,
@@ -98,6 +144,28 @@ async function createRelease(req, res, next) {
         embedId: null
       });
 
+      const rawTrackTitles = normalizeTrackTitles(req.body.trackTitles, audioFiles.length);
+      const tracks = [];
+      if (audioFiles.length > 0) {
+        for (let index = 0; index < audioFiles.length; index += 1) {
+          const file = audioFiles[index];
+          const audioPath = uploadedAudioPaths[index];
+          const requestedTitle = rawTrackTitles[index];
+          const trackTitle = requestedTitle || (file.originalname ? file.originalname.replace(/\.[^/.]+$/, "") : `${title} ${index + 1}`);
+          const track = await releaseModel.createTrack({
+            releaseId: release.id,
+            trackNumber: index + 1,
+            title: trackTitle,
+            audioPath,
+            duration: null
+          });
+          tracks.push(track);
+        }
+      } else if (release.media_audio_path) {
+        tracks.push(buildFallbackTrack(release));
+      }
+
+      release.tracks = tracks;
       res.status(201).json({ success: true, release });
     }
   } catch (error) {
@@ -157,6 +225,10 @@ async function getRelease(req, res, next) {
     const releaseId = parsePositiveId(req.params.id, "Release id");
     const release = await releaseModel.getReleaseById(releaseId);
     if (!release) throw new ApiError(404, "Release not found");
+
+    const tracks = await releaseModel.listTracksByRelease(releaseId);
+    release.tracks = tracks.length ? tracks : (release.media_audio_path ? [buildFallbackTrack(release)] : []);
+
     res.json({ success: true, release });
   } catch (error) {
     next(error);
@@ -175,6 +247,11 @@ async function listReleases(req, res, next) {
       limit: Number(req.query.limit || 20),
       offset: Number(req.query.offset || 0)
     });
+
+    for (const release of releases) {
+      const tracks = await releaseModel.listTracksByRelease(release.id);
+      release.tracks = tracks.length ? tracks : (release.media_audio_path ? [buildFallbackTrack(release)] : []);
+    }
 
     res.json({ success: true, releases });
   } catch (error) {

@@ -50,6 +50,43 @@ async function createRelease({
   return rows[0];
 }
 
+async function createTrack({ releaseId, trackNumber, title, audioPath, duration = null }) {
+  const query = `
+    INSERT INTO release_tracks (release_id, track_number, title, audio_path, duration)
+    VALUES ($1, $2, $3, $4, $5)
+    RETURNING *
+  `;
+
+  const { rows } = await db.query(query, [releaseId, trackNumber, title, audioPath, duration]);
+  return rows[0];
+}
+
+async function listTracksByRelease(releaseId) {
+  const { rows } = await db.query(
+    `SELECT * FROM release_tracks WHERE release_id = $1 ORDER BY track_number ASC, created_at ASC`,
+    [releaseId]
+  );
+  return rows;
+}
+
+async function getTrackById(trackId, releaseId = null) {
+  const values = [trackId];
+  let releaseFilter = "";
+  if (releaseId !== null) {
+    values.push(releaseId);
+    releaseFilter = "AND t.release_id = $2";
+  }
+
+  const { rows } = await db.query(
+    `SELECT t.*, r.title AS release_title, r.artist_id
+     FROM release_tracks t
+     JOIN releases r ON r.id = t.release_id
+     WHERE t.id = $1 AND r.is_deleted = false ${releaseFilter}`,
+    values
+  );
+  return rows[0] || null;
+}
+
 async function updateRelease(releaseId, artistId, payload) {
   const fields = Object.keys(payload);
   if (fields.length === 0) return getReleaseById(releaseId);
@@ -179,6 +216,9 @@ async function incrementCounter(releaseId, column) {
 
 module.exports = {
   createRelease,
+  createTrack,
+  listTracksByRelease,
+  getTrackById,
   updateRelease,
   softDeleteRelease,
   getReleaseById,

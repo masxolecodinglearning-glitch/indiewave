@@ -62,9 +62,45 @@ async function getComments(releaseId) {
   return rows;
 }
 
+async function toggleTrackLike(userId, trackId) {
+  const existing = await db.query("SELECT id FROM likes WHERE user_id = $1 AND track_id = $2", [userId, trackId]);
+  if (existing.rows.length > 0) {
+    await db.query("DELETE FROM likes WHERE user_id = $1 AND track_id = $2", [userId, trackId]);
+    return { liked: false };
+  }
+
+  await db.query("INSERT INTO likes (user_id, track_id) VALUES ($1, $2)", [userId, trackId]);
+  return { liked: true };
+}
+
+async function addTrackComment(userId, trackId, content) {
+  const { rows } = await db.query(
+    `INSERT INTO comments (user_id, track_id, content)
+     VALUES ($1, $2, $3)
+     RETURNING id, user_id, track_id, content, created_at`,
+    [userId, trackId, content]
+  );
+  return rows[0];
+}
+
+async function getTrackComments(trackId) {
+  const { rows } = await db.query(
+    `SELECT c.id, c.track_id, c.content, c.created_at, u.id AS user_id, u.stage_name, u.slug, u.profile_image
+     FROM comments c
+     JOIN users u ON u.id = c.user_id
+     WHERE c.track_id = $1
+     ORDER BY c.created_at DESC`,
+    [trackId]
+  );
+  return rows;
+}
+
 module.exports = {
   toggleFollow,
   toggleLike,
   addComment,
-  getComments
+  getComments,
+  toggleTrackLike,
+  addTrackComment,
+  getTrackComments
 };

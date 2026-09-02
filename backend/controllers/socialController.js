@@ -90,9 +90,66 @@ async function listComments(req, res, next) {
   }
 }
 
+async function likeTrack(req, res, next) {
+  try {
+    const trackId = parsePositiveId(req.params.trackId, "Track id");
+    const track = await releaseModel.getTrackById(trackId);
+    if (!track) throw new ApiError(404, "Track not found");
+
+    const result = await socialModel.toggleTrackLike(req.user.id, trackId);
+    if (result.liked && track.artist_id !== req.user.id) {
+      await notificationModel.createNotification({
+        userId: track.artist_id,
+        type: "like",
+        message: `Your track \"${track.title}\" got a new like.`,
+        relatedId: trackId
+      });
+    }
+    res.json({ success: true, ...result });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function addTrackComment(req, res, next) {
+  try {
+    const trackId = parsePositiveId(req.params.trackId, "Track id");
+    const track = await releaseModel.getTrackById(trackId);
+    if (!track) throw new ApiError(404, "Track not found");
+
+    const comment = await socialModel.addTrackComment(req.user.id, trackId, req.body.content);
+    if (track.artist_id !== req.user.id) {
+      await notificationModel.createNotification({
+        userId: track.artist_id,
+        type: "comment",
+        message: `New comment on \"${track.title}\".`,
+        relatedId: trackId
+      });
+    }
+    res.status(201).json({ success: true, comment });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function listTrackComments(req, res, next) {
+  try {
+    const trackId = parsePositiveId(req.params.trackId, "Track id");
+    const track = await releaseModel.getTrackById(trackId);
+    if (!track) throw new ApiError(404, "Track not found");
+    const comments = await socialModel.getTrackComments(trackId);
+    res.json({ success: true, comments });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   followArtist,
   likeRelease,
   addComment,
-  listComments
+  listComments,
+  likeTrack,
+  addTrackComment,
+  listTrackComments
 };

@@ -1,4 +1,5 @@
 const ApiError = require("../utils/apiError");
+const db = require("../config/db");
 const releaseModel = require("../models/releaseModel");
 const r2 = require("../utils/r2");
 
@@ -101,6 +102,49 @@ async function trackListen(req, res, next) {
   }
 }
 
+async function trackListenForTrack(req, res, next) {
+  try {
+    const trackId = parseReleaseId(req.params.trackId);
+    const sessionId = String(req.body.sessionId || "").trim();
+    const elapsedSeconds = Number(req.body.elapsedSeconds);
+    if (!sessionId || sessionId.length > 200) throw new ApiError(400, "A valid listening session id is required");
+    if (!Number.isFinite(elapsedSeconds) || elapsedSeconds < 30) {
+      throw new ApiError(422, "Track listens require at least 30 seconds");
+    }
+
+    const requestedReleaseId = req.params.releaseId || req.body.releaseId || null;
+    const track = await releaseModel.getTrackById(trackId, requestedReleaseId ? parseReleaseId(requestedReleaseId) : null);
+    if (!track) throw new ApiError(404, "Track not found");
+
+    const client = await db.getClient();
+    try {
+      await client.query("BEGIN");
+      const inserted = await client.query(
+        `INSERT INTO track_listens (track_id, user_id, session_id)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (track_id, session_id) DO NOTHING
+         RETURNING id`,
+        [trackId, req.user?.id || null, sessionId]
+      );
+      if (inserted.rows.length) {
+        await client.query(
+          "UPDATE release_tracks SET listen_count = listen_count + 1 WHERE id = $1",
+          [trackId]
+        );
+      }
+      await client.query("COMMIT");
+      res.json({ success: true, recorded: inserted.rows.length > 0, message: inserted.rows.length ? "Track listen tracked" : "Track listen already tracked" });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function trackView(req, res, next) {
   try {
     const releaseId = parseReleaseId(req.params.releaseId);
@@ -119,5 +163,6 @@ module.exports = {
   trackDownload,
   downloadRelease,
   trackListen,
+  trackListenForTrack,
   trackView
 };

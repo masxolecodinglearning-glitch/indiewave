@@ -410,7 +410,8 @@
             <!-- Upload file section (shown by default) -->
             <div id="releaseUploadSection">
               <label>Audio (MP3)</label>
-              <input name="audio" type="file" accept="audio/mpeg" />
+              <input id="releaseAudioInput" name="audio" type="file" accept="audio/mpeg" multiple />
+              <div id="releaseTrackList" class="release-track-list"></div>
               <label>Video (MP4)</label>
               <input name="video" type="file" accept="video/mp4" />
             </div>
@@ -542,6 +543,7 @@
           </select>
           <select name="targetType" required>
             <option value="release">Release</option>
+            <option value="track">Track</option>
             <option value="artist">Artist</option>
             <option value="comment">Comment</option>
           </select>
@@ -594,6 +596,8 @@
       </div>
       <button id="globalExpandBtn" class="btn btn-outline global-expand-btn" type="button">Now Playing</button>
     </section>
+
+    <dialog id="releaseDetailDialog" class="glass now-playing-dialog" aria-label="Release details"></dialog>
 
     <dialog id="nowPlayingDialog" class="glass now-playing-dialog">
       <button id="nowPlayingCloseBtn" class="form-close now-playing-close" type="button" aria-label="Close now playing">Close</button>

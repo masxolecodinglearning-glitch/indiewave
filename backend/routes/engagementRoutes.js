@@ -6,6 +6,8 @@ const router = express.Router();
 router.post("/releases/:releaseId/download", engagementController.trackDownload);
 router.get("/releases/:releaseId/download", engagementController.downloadRelease);
 router.post("/releases/:releaseId/listen", engagementController.trackListen);
+router.post("/tracks/:trackId/listen", engagementController.trackListenForTrack);
+router.post("/releases/:releaseId/tracks/:trackId/listen", engagementController.trackListenForTrack);
 router.post("/releases/:releaseId/view", engagementController.trackView);
 
 module.exports = router;

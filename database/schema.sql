@@ -43,6 +43,20 @@ CREATE TABLE IF NOT EXISTS releases (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS release_tracks (
+  id BIGSERIAL PRIMARY KEY,
+  release_id BIGINT NOT NULL REFERENCES releases(id) ON DELETE CASCADE,
+  track_number INTEGER NOT NULL CHECK (track_number > 0),
+  title VARCHAR(200) NOT NULL,
+  audio_path TEXT NOT NULL,
+  duration INTEGER,
+  listen_count BIGINT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (release_id, track_number)
+);
+
+ALTER TABLE release_tracks ADD COLUMN IF NOT EXISTS listen_count BIGINT NOT NULL DEFAULT 0;
+
 -- IndieWave Embed: additive columns for pre-existing "releases" tables.
 -- CREATE TABLE IF NOT EXISTS above is a no-op when the table already exists,
 -- so these ADD COLUMN IF NOT EXISTS statements keep older databases in sync
@@ -79,17 +93,39 @@ CREATE TABLE IF NOT EXISTS followers (
 CREATE TABLE IF NOT EXISTS likes (
   id BIGSERIAL PRIMARY KEY,
   user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  release_id BIGINT NOT NULL REFERENCES releases(id) ON DELETE CASCADE,
+  release_id BIGINT REFERENCES releases(id) ON DELETE CASCADE,
+  track_id BIGINT REFERENCES release_tracks(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE(user_id, release_id)
 );
 
+ALTER TABLE likes ALTER COLUMN release_id DROP NOT NULL;
+ALTER TABLE likes ADD COLUMN IF NOT EXISTS track_id BIGINT REFERENCES release_tracks(id) ON DELETE CASCADE;
+ALTER TABLE likes DROP CONSTRAINT IF EXISTS likes_release_or_track_check;
+ALTER TABLE likes ADD CONSTRAINT likes_release_or_track_check CHECK ((release_id IS NOT NULL) <> (track_id IS NOT NULL));
+CREATE UNIQUE INDEX IF NOT EXISTS idx_likes_user_track ON likes(user_id, track_id) WHERE track_id IS NOT NULL;
+
 CREATE TABLE IF NOT EXISTS comments (
   id BIGSERIAL PRIMARY KEY,
   user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  release_id BIGINT NOT NULL REFERENCES releases(id) ON DELETE CASCADE,
+  release_id BIGINT REFERENCES releases(id) ON DELETE CASCADE,
+  track_id BIGINT REFERENCES release_tracks(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE comments ALTER COLUMN release_id DROP NOT NULL;
+ALTER TABLE comments ADD COLUMN IF NOT EXISTS track_id BIGINT REFERENCES release_tracks(id) ON DELETE CASCADE;
+ALTER TABLE comments DROP CONSTRAINT IF EXISTS comments_release_or_track_check;
+ALTER TABLE comments ADD CONSTRAINT comments_release_or_track_check CHECK ((release_id IS NOT NULL) <> (track_id IS NOT NULL));
+
+CREATE TABLE IF NOT EXISTS track_listens (
+  id BIGSERIAL PRIMARY KEY,
+  track_id BIGINT NOT NULL REFERENCES release_tracks(id) ON DELETE CASCADE,
+  user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+  session_id VARCHAR(200) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(track_id, session_id)
 );
 
 CREATE TABLE IF NOT EXISTS notifications (
@@ -138,7 +174,7 @@ CREATE TABLE IF NOT EXISTS reports (
   id BIGSERIAL PRIMARY KEY,
   reporter_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   report_type VARCHAR(30) NOT NULL CHECK (report_type IN ('content', 'copyright')),
-  target_type VARCHAR(30) NOT NULL CHECK (target_type IN ('artist', 'release', 'comment')),
+  target_type VARCHAR(30) NOT NULL CHECK (target_type IN ('artist', 'release', 'comment', 'track')),
   target_id BIGINT NOT NULL,
   reason TEXT NOT NULL,
   details TEXT,
@@ -146,6 +182,10 @@ CREATE TABLE IF NOT EXISTS reports (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE reports DROP CONSTRAINT IF EXISTS reports_target_type_check;
+ALTER TABLE reports ADD CONSTRAINT reports_target_type_check
+  CHECK (target_type IN ('artist', 'release', 'comment', 'track')) NOT VALID;
 
 CREATE INDEX IF NOT EXISTS idx_users_slug ON users(slug);
 
@@ -229,7 +269,10 @@ CREATE INDEX IF NOT EXISTS idx_releases_country ON releases(country);
 CREATE INDEX IF NOT EXISTS idx_releases_created_at ON releases(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_followers_artist_id ON followers(artist_id);
 CREATE INDEX IF NOT EXISTS idx_likes_release_id ON likes(release_id);
+CREATE INDEX IF NOT EXISTS idx_likes_track_id ON likes(track_id);
 CREATE INDEX IF NOT EXISTS idx_comments_release_id ON comments(release_id);
+CREATE INDEX IF NOT EXISTS idx_comments_track_id ON comments(track_id);
+CREATE INDEX IF NOT EXISTS idx_track_listens_track_id ON track_listens(track_id);
 CREATE INDEX IF NOT EXISTS idx_conversation_participants_user_id ON conversation_participants(user_id);
 CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages(sender_id);
