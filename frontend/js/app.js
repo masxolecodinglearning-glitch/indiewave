@@ -13,6 +13,7 @@ const state = {
   listeningSessionId: null,
   currentRelease: null,
   currentTrackIndex: null,
+  appView: "home",
   commentsReleaseId: null,
   activeConversationId: null,
   activeConversationUser: null,
@@ -270,11 +271,16 @@ function toggleAuthUI() {
   const dashboardBtn = $("dashboardBtn");
   if (dashboardBtn) dashboardBtn.classList.toggle("hidden", !authenticated || !isArtist);
 
-  $("dashboard").classList.toggle("hidden", !authenticated || !isArtist);
-  $("adminSection").classList.toggle("hidden", !authenticated || !isAdmin);
+  const sidebarAuthBtn = $("sidebarAuthBtn");
+  const sidebarLogoutBtn = $("sidebarLogoutBtn");
+  if (sidebarAuthBtn) sidebarAuthBtn.classList.toggle("hidden", authenticated);
+  if (sidebarLogoutBtn) sidebarLogoutBtn.classList.toggle("hidden", !authenticated);
+
+  $("dashboard").classList.toggle("hidden", state.appView !== "dashboard" || !authenticated || !isArtist);
+  $("adminSection").classList.toggle("hidden", state.appView !== "dashboard" || !authenticated || !isAdmin);
 
   const messagesSection = $("messages");
-  if (messagesSection) messagesSection.classList.toggle("hidden", !authenticated);
+  if (messagesSection) messagesSection.classList.toggle("hidden", state.appView !== "messages" || !authenticated);
 
   const notificationsPanel = $("notificationsPanel");
   if (notificationsPanel) notificationsPanel.classList.add("hidden");
@@ -298,50 +304,48 @@ function toggleAuthUI() {
 }
 
 function showHomeView() {
+  setAppView("home");
+}
+
+function setAppView(view) {
+  const views = {
+    home: ["welcome", "genres", "discover", "newReleases", "forArtists"],
+    search: ["welcome"],
+    music: ["discover", "newReleases", "musicTypes"],
+    library: ["library"],
+    artists: ["artists", "newReleases"],
+    marketplace: ["marketplace"],
+    more: ["moreHub"],
+    notifications: ["messages"],
+    genres: ["genres", "countries"],
+    videos: ["videos"],
+    messages: ["messages"],
+    ai: ["indieWaveAi"],
+    dashboard: ["dashboard", "adminSection"]
+  };
+  const visibleIds = views[view] || views.home;
+  state.appView = views[view] ? view : "home";
   document.querySelectorAll("main > section").forEach((section) => {
-    if (section.id === "dashboard") {
-      section.classList.add("hidden");
-      return;
-    }
-    if (section.id === "adminSection" && state.user?.role !== "admin") {
-      section.classList.add("hidden");
-      return;
-    }
-    section.classList.remove("hidden");
+    const visible = visibleIds.includes(section.id);
+    const adminAllowed = section.id !== "adminSection" || state.user?.role === "admin";
+    const artistAllowed = section.id !== "dashboard" || state.user?.role === "artist";
+    section.classList.toggle("hidden", !visible || !adminAllowed || !artistAllowed);
   });
 
-  const dashboard = $("dashboard");
-  if (dashboard) dashboard.classList.add("hidden");
+  document.querySelectorAll("[data-app-view]").forEach((link) => {
+    link.classList.toggle("active", link.dataset.appView === view);
+  });
 
-  const adminSection = $("adminSection");
-  if (adminSection && state.user?.role !== "admin") adminSection.classList.add("hidden");
-
-  const notificationsPanel = $("notificationsPanel");
-  if (notificationsPanel) notificationsPanel.classList.add("hidden");
+  if (view !== "messages") {
+    $("notificationsPanel")?.classList.add("hidden");
+  }
+  if (view === "home") window.scrollTo({ top: 0, behavior: "auto" });
+  else if (view === "dashboard") $("dashboard")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  else $(visibleIds[0])?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function showDashboardView() {
-  document.querySelectorAll("main > section").forEach((section) => {
-    const isDashboard = section.id === "dashboard";
-    const isAdmin = section.id === "adminSection";
-    if (isDashboard || (isAdmin && state.user?.role === "admin")) {
-      section.classList.remove("hidden");
-      return;
-    }
-    section.classList.add("hidden");
-  });
-
-  const dashboard = $("dashboard");
-  if (dashboard) {
-    dashboard.classList.remove("hidden");
-    dashboard.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
-  const notificationsPanel = $("notificationsPanel");
-  if (notificationsPanel) notificationsPanel.classList.add("hidden");
-
-  const messagesPanel = $("messagesPanel");
-  if (messagesPanel) messagesPanel.classList.add("hidden");
+  setAppView("dashboard");
 }
 
 // Legacy paths ("uploads/..." or "../uploads/...") are served by Render express.static.
@@ -1738,6 +1742,25 @@ function wireEvents() {
   $("openAuthBtn").addEventListener("click", () => $("authDialog").showModal());
   $("closeAuthBtn").addEventListener("click", () => $("authDialog").close());
 
+  $("sidebarAuthBtn")?.addEventListener("click", () => $("authDialog").showModal());
+  $("sidebarLogoutBtn")?.addEventListener("click", () => $("logoutBtn").click());
+
+  document.querySelectorAll("[data-app-view]").forEach((link) => {
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      const view = link.dataset.appView;
+      if ((view === "dashboard" || view === "messages") && !state.token) {
+        $("authDialog").showModal();
+        return;
+      }
+      if (view === "dashboard" && state.user?.role !== "artist") {
+        notify("Artist workspace requires an artist account");
+        return;
+      }
+      setAppView(view);
+    });
+  });
+
   $("logoutBtn").addEventListener("click", () => {
     state.token = "";
     state.user = null;
@@ -2591,6 +2614,7 @@ async function bootstrap() {
   }
 
   try {
+    setAppView("home");
     await openSharedRelease();
     await initializeData();
   } catch (error) {

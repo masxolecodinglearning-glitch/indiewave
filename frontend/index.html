@@ -39,8 +39,32 @@
       </div>
     </header>
 
+    <aside class="app-sidebar glass" aria-label="Primary navigation">
+      <a class="sidebar-brand brand" href="#home">IndieWave</a>
+      <nav class="sidebar-nav">
+        <a href="#home" data-app-view="home">Home</a>
+        <a href="#welcome" data-app-view="search">Search</a>
+        <a href="#library" data-app-view="library">Your Library</a>
+        <a href="#artists" data-app-view="artists">Artists</a>
+        <a href="#marketplace" data-app-view="marketplace">Marketplace</a>
+      </nav>
+      <div class="sidebar-divider"></div>
+      <p class="sidebar-label">More</p>
+      <nav class="sidebar-nav sidebar-nav-secondary">
+        <a href="#videos" data-app-view="videos">Videos &amp; Live</a>
+        <a href="#messages" data-app-view="messages">Messages</a>
+        <a href="#indieWaveAi" data-app-view="ai">IndieWave AI</a>
+        <a href="#dashboard" data-app-view="dashboard">Artist Workspace</a>
+        <a href="#videos" data-app-view="more">More</a>
+      </nav>
+      <div class="sidebar-account">
+        <button id="sidebarAuthBtn" class="btn btn-primary" type="button">Login / Register</button>
+        <button id="sidebarLogoutBtn" class="btn btn-light hidden" type="button">Logout</button>
+      </div>
+    </aside>
+
     <main id="home">
-      <section class="hero section glass">
+      <section id="welcome" class="hero section glass">
         <div class="hero-copy">
           <p class="eyebrow">THE HOME OF INDEPENDENT MUSIC</p>
           <h1>Discover African Independent Sounds Shaping Tomorrow</h1>
@@ -120,7 +144,7 @@
         </div>
       </section>
 
-      <section id="musicTypes" class="section">
+      <section id="musicTypes" class="section secondary-view-section">
         <div class="section-title-row">
           <div>
             <p class="section-kicker">Explore The Catalog</p>
@@ -189,7 +213,52 @@
         <div id="artistGrid" class="artist-grid"></div>
       </section>
 
-      <section id="videos" class="section">
+      <section id="library" class="section secondary-view-section">
+        <div class="section-title-row">
+          <div>
+            <p class="section-kicker">Your Music</p>
+            <h2>Your Library</h2>
+          </div>
+        </div>
+        <div class="library-empty-state glass">
+          <h3>Your library is ready for its first favorite.</h3>
+          <p class="release-meta">Like music and follow artists to build your personal collection.</p>
+          <a class="btn btn-primary" href="#discover" data-app-view="music">Explore Music</a>
+        </div>
+      </section>
+
+      <section id="moreHub" class="section secondary-view-section">
+        <div class="section-title-row">
+          <div>
+            <p class="section-kicker">More IndieWave</p>
+            <h2>Everything else, one step away</h2>
+          </div>
+        </div>
+        <div class="more-hub-grid">
+          <article class="more-hub-group glass">
+            <p class="section-kicker">Content</p>
+            <button class="btn btn-outline" type="button" data-app-view="videos">Videos &amp; Live</button>
+            <button class="btn btn-outline" type="button" data-app-view="genres">Genres &amp; Regions</button>
+          </article>
+          <article class="more-hub-group glass">
+            <p class="section-kicker">Community</p>
+            <button class="btn btn-outline" type="button" data-app-view="messages">Messages</button>
+            <button class="btn btn-outline" type="button" data-app-view="notifications">Notifications</button>
+          </article>
+          <article class="more-hub-group glass">
+            <p class="section-kicker">Tools</p>
+            <button class="btn btn-outline" type="button" data-app-view="ai">IndieWave AI</button>
+            <button class="btn btn-outline" type="button" data-app-view="reports">Reports</button>
+          </article>
+          <article class="more-hub-group glass">
+            <p class="section-kicker">Business</p>
+            <button class="btn btn-outline" type="button" data-app-view="marketplace">Marketplace</button>
+            <button class="btn btn-outline" type="button" data-app-view="dashboard">Artist Workspace</button>
+          </article>
+        </div>
+      </section>
+
+      <section id="videos" class="section secondary-view-section">
         <div class="section-title-row">
           <div>
             <p class="section-kicker">Visual Content</p>
@@ -200,7 +269,7 @@
         <div id="liveGrid" class="release-grid"></div>
       </section>
 
-      <section id="countries" class="section">
+      <section id="countries" class="section secondary-view-section">
         <div class="section-title-row">
           <div>
             <p class="section-kicker">Regional Discovery</p>
@@ -210,7 +279,7 @@
         <div id="countryChips" class="chips-wrap"></div>
       </section>
 
-      <section class="section">
+      <section id="businessHub" class="section secondary-view-section">
         <div class="section-title-row">
           <div>
             <p class="section-kicker">Future Business Features</p>
@@ -219,7 +288,7 @@
         </div>
       </section>
 
-      <section id="messages" class="section">
+      <section id="messages" class="section secondary-view-section">
         <div class="section-title-row">
           <div>
             <p class="section-kicker">Direct Messages</p>
@@ -248,7 +317,7 @@
         </div>
       </section>
 
-      <section id="marketplace" class="section">
+      <section id="marketplace" class="section secondary-view-section">
         <div class="mkt-hero glass">
           <div class="mkt-hero-copy">
             <p class="section-kicker">IndieWave Marketplace</p>
@@ -295,7 +364,7 @@
         </div>
       </section>
 
-      <section id="indieWaveAi" class="section">
+      <section id="indieWaveAi" class="section secondary-view-section">
         <div class="glass ai-shell">
           <div class="section-title-row ai-header">
             <div>
@@ -345,7 +414,7 @@
         </div>
       </section>
 
-      <section id="dashboard" class="section hidden">
+      <section id="dashboard" class="section secondary-view-section hidden">
         <div class="dashboard-header glass">
           <div>
             <p class="section-kicker">Artist Platform</p>
@@ -528,13 +597,13 @@
         </div>
       </section>
 
-      <section id="adminSection" class="section hidden">
+      <section id="adminSection" class="section secondary-view-section hidden">
         <h2>Admin Dashboard</h2>
         <div id="adminStats" class="stats-row"></div>
         <div id="adminReports" class="glass card"></div>
       </section>
 
-      <section class="section">
+      <section id="reports" class="section secondary-view-section">
         <h2>Report Content / Copyright</h2>
         <form id="reportForm" class="glass form-inline">
           <select name="reportType" required>
@@ -554,7 +623,7 @@
         </form>
       </section>
 
-      <section id="forArtists" class="section glass creator-shell">
+      <section id="forArtists" class="section glass creator-shell home-artist-cta">
         <div>
           <p class="section-kicker">IndieWave For Artists</p>
           <h2>Build Your Career Beyond Streaming</h2>
@@ -596,6 +665,14 @@
       </div>
       <button id="globalExpandBtn" class="btn btn-outline global-expand-btn" type="button">Now Playing</button>
     </section>
+
+    <nav class="mobile-app-nav" aria-label="Mobile navigation">
+      <a href="#home" data-app-view="home">Home</a>
+      <a href="#welcome" data-app-view="search">Search</a>
+      <a href="#library" data-app-view="library">Library</a>
+      <a href="#artists" data-app-view="artists">Artists</a>
+      <a href="#videos" data-app-view="more">More</a>
+    </nav>
 
     <dialog id="releaseDetailDialog" class="glass now-playing-dialog" aria-label="Release details"></dialog>
 
