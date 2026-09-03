@@ -63,8 +63,8 @@ function buildSafeProviderDiagnostic(error) {
   };
 }
 
-async function generateAiText({ systemInstruction, userPrompt, temperature = 0.7, maxOutputTokens = 700 }) {
-  const prompt = cleanPrompt(userPrompt, "Prompt");
+async function generateAiText({ systemInstruction, userPrompt, contents, temperature = 0.7, maxOutputTokens = 700 }) {
+  const prompt = userPrompt ? cleanPrompt(userPrompt, "Prompt") : "";
   const instruction = String(systemInstruction || "").trim();
 
   if (!instruction) {
@@ -76,7 +76,7 @@ async function generateAiText({ systemInstruction, userPrompt, temperature = 0.7
   try {
     response = await ai.models.generateContent({
       model: AI_MODEL,
-      contents: prompt,
+      contents: contents || prompt,
       config: {
         systemInstruction: instruction,
         temperature,

@@ -1,11 +1,15 @@
 const ApiError = require("../utils/apiError");
 const { generateAiText, MAX_PROMPT_CHARS } = require("../utils/ai");
+const aiModel = require("../models/aiModel");
 
 const INDIEWAVE_SYSTEM_INSTRUCTION = [
   "You are IndieWave AI, an AI assistant built specifically for independent musicians.",
   "IndieWave is an independent music platform focused on helping artists promote, present, distribute, and grow their music careers.",
-  "Help independent artists with music promotion, artist branding, release campaigns, social media marketing, artist biographies, song descriptions, EP and album descriptions, audience growth, content ideas, release planning, professional communication, and independent music business guidance.",
-  "Speak clearly, practically, and honestly.",
+  "Help artists, producers, event organizers, merch sellers, and music fans with music strategy, release planning, branding, promotion, songwriting concepts, production workflows, audience growth, and music business concepts.",
+  "Use the conversation context to understand follow-up questions. Give useful depth, practical steps, examples, and structured plans when appropriate, but do not force every answer into a generic list.",
+  "Answer general questions, writing requests, brainstorming, analysis, planning, rewriting, summarization, and coding explanations when requested. Adapt your length and format to the user's actual goal.",
+  "Ask a clarifying question when a missing detail materially changes the answer. Distinguish known facts from suggestions and state uncertainty honestly.",
+  "Speak naturally, clearly, practically, and honestly.",
   "Never invent streams, awards, chart positions, collaborations, followers, income, achievements, or other facts.",
   "Never guarantee fame, streams, money, or success.",
   "Never claim IndieWave performed an action if it did not.",
@@ -50,18 +54,112 @@ function handleAiError(next, error) {
   return next(new ApiError(502, "AI service is currently unavailable. Please try again."));
 }
 
+function parseConversationId(value) {
+  if (value === undefined || value === null || value === "") return null;
+  const id = Number(value);
+  if (!Number.isSafeInteger(id) || id < 1) {
+    throw new ApiError(400, "Invalid conversationId");
+  }
+  return id;
+}
+
+function parseRequestId(value) {
+  const requestId = readTrimmed(value);
+  if (!requestId) return null;
+  if (requestId.length > 100) throw new ApiError(400, "Invalid requestId");
+  return requestId;
+}
+
+async function resolveConversation(userId, conversationId, initialMessage) {
+  if (conversationId) {
+    const conversation = await aiModel.getConversation(userId, conversationId);
+    if (!conversation) throw new ApiError(404, "AI conversation not found");
+    return conversation;
+  }
+  return aiModel.createConversation(userId, initialMessage);
+}
+
+async function listConversations(req, res, next) {
+  try {
+    res.json({ success: true, conversations: await aiModel.listConversations(req.user.id) });
+  } catch (error) {
+    handleAiError(next, error);
+  }
+}
+
+async function getConversation(req, res, next) {
+  try {
+    const conversationId = parseConversationId(req.params.id);
+    const conversation = await aiModel.getConversation(req.user.id, conversationId);
+    if (!conversation) throw new ApiError(404, "AI conversation not found");
+    const messages = await aiModel.getRecentMessages(req.user.id, conversationId);
+    res.json({ success: true, conversation, messages });
+  } catch (error) {
+    handleAiError(next, error);
+  }
+}
+
+async function createConversation(req, res, next) {
+  try {
+    const conversation = await aiModel.createConversation(req.user.id, req.body.title || "");
+    res.status(201).json({ success: true, conversation });
+  } catch (error) {
+    handleAiError(next, error);
+  }
+}
+
+async function deleteConversation(req, res, next) {
+  try {
+    const conversationId = parseConversationId(req.params.id);
+    const deleted = await aiModel.deleteConversation(req.user.id, conversationId);
+    if (!deleted) throw new ApiError(404, "AI conversation not found");
+    res.json({ success: true });
+  } catch (error) {
+    handleAiError(next, error);
+  }
+}
+
 async function chat(req, res, next) {
   try {
     const message = requireLength(req.body.message, "message");
+    const conversationId = parseConversationId(req.body.conversationId);
+    const requestId = parseRequestId(req.body.requestId);
+    const conversation = conversationId
+      ? await resolveConversation(req.user.id, conversationId, message)
+      : null;
+    const history = conversation
+      ? await aiModel.getRecentMessages(req.user.id, conversation.id)
+      : [];
+    const contents = history.map((item) => ({
+      role: item.role === "assistant" ? "model" : "user",
+      parts: [{ text: item.content }]
+    }));
+    contents.push({ role: "user", parts: [{ text: message }] });
 
     const response = await generateAiText({
       systemInstruction: INDIEWAVE_SYSTEM_INSTRUCTION,
-      userPrompt: message,
+      contents,
       temperature: 0.7,
-      maxOutputTokens: 700
+      maxOutputTokens: 1000
     });
 
-    res.json({ success: true, response });
+    const savedTurn = await aiModel.saveSuccessfulTurn({
+      userId: req.user.id,
+      conversationId: conversation?.id || null,
+      initialMessage: message,
+      requestId,
+      userMessage: message,
+      assistantMessage: response
+    });
+    if (!savedTurn) throw new ApiError(404, "AI conversation not found");
+
+    const savedConversation = await aiModel.getConversation(req.user.id, savedTurn.conversationId);
+    res.json({
+      success: true,
+      response: savedTurn.response,
+      conversationId: savedTurn.conversationId,
+      conversation: savedConversation
+    });
   } catch (error) {
     handleAiError(next, error);
   }
@@ -137,6 +235,10 @@ async function marketingCaption(req, res, next) {
 
 module.exports = {
   chat,
+  createConversation,
+  deleteConversation,
+  getConversation,
+  listConversations,
   generateBio,
   marketingCaption
 };

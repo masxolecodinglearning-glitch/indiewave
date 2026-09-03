@@ -22,7 +22,8 @@ const state = {
   ai: {
     loading: false,
     lastRequest: null,
-    lastResponse: ""
+    lastResponse: "",
+    conversationId: null
   }
 };
 
@@ -207,6 +208,7 @@ async function sendAiRequest(config) {
 
     state.ai.lastRequest = config;
     state.ai.lastResponse = responseText;
+    if (result.conversationId) state.ai.conversationId = Number(result.conversationId);
     setAiStatus("Response ready");
     return responseText;
   } finally {
@@ -222,10 +224,35 @@ async function runAiChat(message) {
   addAiMessage("user", text);
   const response = await sendAiRequest({
     path: "/ai/chat",
-    payload: { message: text },
+    payload: {
+      message: text,
+      conversationId: state.ai.conversationId,
+      requestId: globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`
+    },
     responseKey: "response"
   });
   addAiMessage("assistant", response);
+}
+
+async function loadAiConversation() {
+  if (!state.token || !$('aiConversation')) return;
+  try {
+    const data = await api("/ai/conversations");
+    const conversation = data.conversations?.[0];
+    if (!conversation) return;
+    const detail = await api(`/ai/conversations/${conversation.id}`);
+    state.ai.conversationId = Number(detail.conversation.id);
+    $("aiConversation").replaceChildren();
+    detail.messages.forEach((message) => addAiMessage(message.role === "assistant" ? "assistant" : "user", message.content));
+  } catch (error) {
+    setAiStatus("Unable to load AI conversation", true);
+  }
+}
+
+function startNewAiConversation() {
+  state.ai.conversationId = null;
+  $("aiConversation")?.replaceChildren();
+  setAiStatus("New conversation");
 }
 
 async function runAiBio(form) {
@@ -1896,6 +1923,8 @@ function wireEvents() {
     $("aiQuickBioBtn").addEventListener("click", () => showAiPanel("bio"));
     $("aiQuickCaptionBtn").addEventListener("click", () => showAiPanel("caption"));
     $("aiQuickChatBtn").addEventListener("click", () => showAiPanel("chat"));
+    $("aiNewConversationBtn").addEventListener("click", startNewAiConversation);
+    loadAiConversation();
 
     $("aiChatForm").addEventListener("submit", async (event) => {
       event.preventDefault();
