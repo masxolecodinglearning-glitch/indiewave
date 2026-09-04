@@ -1976,7 +1976,14 @@ function wireEvents() {
       }
 
       try {
-        const response = await sendAiRequest(state.ai.lastRequest);
+        const regenerateRequest = {
+          ...state.ai.lastRequest,
+          payload: {
+            ...state.ai.lastRequest.payload,
+            requestId: globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`
+          }
+        };
+        const response = await sendAiRequest(regenerateRequest);
         addAiMessage("assistant", response);
       } catch (error) {
         setAiStatus(error.message, true);
