@@ -14,6 +14,8 @@ const state = {
   currentRelease: null,
   currentTrackIndex: null,
   appView: "home",
+  genreBucket: "all",
+  formatType: "all",
   commentsReleaseId: null,
   activeConversationId: null,
   activeConversationUser: null,
@@ -234,6 +236,21 @@ async function runAiChat(message) {
   addAiMessage("assistant", response);
 }
 
+// Bridges Artist Growth quick prompts into the existing IndieWave AI chat (no new chatbot).
+window.askIndieWaveAI = async function askIndieWaveAI(prompt) {
+  if (!state.token) {
+    $("authDialog")?.showModal();
+    return;
+  }
+  setAppView("ai");
+  showAiPanel("chat");
+  try {
+    await runAiChat(prompt);
+  } catch (error) {
+    setAiStatus(error.message, true);
+  }
+};
+
 async function loadAiConversation() {
   if (!state.token || !$('aiConversation')) return;
   try {
@@ -348,6 +365,7 @@ function setAppView(view) {
     videos: ["videos"],
     messages: ["messages"],
     ai: ["indieWaveAi"],
+    artistGrowth: ["artistGrowth"],
     dashboard: ["dashboard", "adminSection"]
   };
   const visibleIds = views[view] || views.home;
@@ -398,6 +416,116 @@ function releaseTypeLabel(type) {
     video: "Video",
     live_performance: "Live"
   }[type] || type;
+}
+
+// Standardized discovery genre taxonomy. releases.genre stays free text in the database;
+// this is a safe, additive, frontend-only normalization layer (no destructive migration).
+const GENRE_BUCKET_DEFS = [
+  { id: "all", label: "All" },
+  { id: "afrosounds", label: "Afrosounds", keywords: ["afrosounds", "afro sounds", "afro sound"] },
+  { id: "hiphop", label: "Hip-Hop/Rap", keywords: ["hip hop", "hiphop", "rap", "kasi rap", "kasirap"] },
+  { id: "amapiano", label: "Amapiano", keywords: ["amapiano", "piano"] },
+  { id: "afrobeats", label: "Afrobeats", keywords: ["afrobeats", "afrobeat", "afro beats"] },
+  { id: "rnb", label: "R&B", keywords: ["r&b", "r and b", "rnb", "r n b", "rhythm and blues"] },
+  { id: "house", label: "House", keywords: ["house", "gqom"] },
+  { id: "drill", label: "Drill", keywords: ["drill"] },
+  { id: "trap", label: "Trap", keywords: ["trap"] },
+  { id: "soul", label: "Soul", keywords: ["soul"] },
+  { id: "gospel", label: "Gospel", keywords: ["gospel", "christian"] },
+  { id: "pop", label: "Pop", keywords: ["pop"] },
+  { id: "jazz", label: "Jazz", keywords: ["jazz"] },
+  { id: "other", label: "Other" }
+];
+
+const FORMAT_DEFS = [
+  { id: "all", label: "All" },
+  { id: "single", label: "Singles" },
+  { id: "ep", label: "EPs" },
+  { id: "album", label: "Albums" },
+  { id: "mixtape", label: "Mixtapes" },
+  { id: "dj_mix", label: "DJ Mixes" }
+];
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Case-insensitive, whitespace/punctuation-safe bucket matching. Anything unmatched
+// falls into "other" so no existing release ever disappears from discovery.
+function normalizeGenreBucket(rawGenre) {
+  const normalized = String(rawGenre || "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalized) return "other";
+
+  for (const bucket of GENRE_BUCKET_DEFS) {
+    if (!bucket.keywords) continue;
+    const matched = bucket.keywords.some((keyword) => new RegExp(`\\b${escapeRegExp(keyword)}\\b`).test(normalized));
+    if (matched) return bucket.id;
+  }
+
+  return "other";
+}
+
+function filterByGenreBucket(releases) {
+  if (!state.genreBucket || state.genreBucket === "all") return releases;
+  return releases.filter((release) => normalizeGenreBucket(release.genre) === state.genreBucket);
+}
+
+function renderGenreBucketChips() {
+  const container = $("genreChips");
+  if (!container) return;
+  container.innerHTML = GENRE_BUCKET_DEFS.map(
+    (bucket) =>
+      `<button type="button" class="chip${bucket.id === state.genreBucket ? " active" : ""}" data-bucket="${bucket.id}" onclick="selectGenreBucket('${bucket.id}')">${escapeHtml(bucket.label)}</button>`
+  ).join("");
+}
+
+function renderFormatChips() {
+  const container = $("formatChips");
+  if (!container) return;
+  container.innerHTML = FORMAT_DEFS.map(
+    (format) =>
+      `<button type="button" class="chip${format.id === state.formatType ? " active" : ""}" data-format="${format.id}" onclick="selectFormat('${format.id}')">${escapeHtml(format.label)}</button>`
+  ).join("");
+}
+
+function wireGenreGridCards() {
+  document.querySelectorAll(".genre-card[data-bucket]").forEach((card) => {
+    card.classList.toggle("active", card.dataset.bucket === state.genreBucket);
+    card.addEventListener("click", () => selectGenreBucket(card.dataset.bucket));
+  });
+}
+
+window.selectGenreBucket = async function selectGenreBucket(bucketId) {
+  state.genreBucket = bucketId;
+  document.querySelectorAll("#genreChips .chip[data-bucket]").forEach((chip) => {
+    chip.classList.toggle("active", chip.dataset.bucket === bucketId);
+  });
+  document.querySelectorAll(".genre-card[data-bucket]").forEach((card) => {
+    card.classList.toggle("active", card.dataset.bucket === bucketId);
+  });
+  await Promise.all([loadReleases(), loadTrendingReleases()]);
+};
+
+window.selectFormat = async function selectFormat(formatId) {
+  state.formatType = formatId;
+  document.querySelectorAll("#formatChips .chip[data-format]").forEach((chip) => {
+    chip.classList.toggle("active", chip.dataset.format === formatId);
+  });
+  await Promise.all([loadReleases(), loadTrendingReleases()]);
+};
+
+function renderLoadError(containerId, retry) {
+  const container = $(containerId);
+  if (!container) return;
+  const retryId = `${containerId}RetryBtn`;
+  container.innerHTML = `<div class="empty-state"><p class="empty-state-title">Something went wrong.</p><p class="empty-state-text">We couldn't load this right now. Please try again.</p><button type="button" class="btn btn-outline empty-state-btn" id="${retryId}">Retry</button></div>`;
+  $(retryId)?.addEventListener("click", retry);
 }
 
 function renderReleaseCard(release, mine = false) {
@@ -473,35 +601,66 @@ function renderArtistCard(artist) {
 }
 
 async function loadReleases(filters = {}) {
-  const query = new URLSearchParams({ sort: state.sort, ...filters }).toString();
-  const data = await api(`/releases?${query}`);
-  state.releases = data.releases;
-  if (filters.q !== undefined) renderSearchResults(data.releases, filters.q);
+  const mergedFilters = { ...filters };
+  if (state.formatType && state.formatType !== "all" && mergedFilters.type === undefined) {
+    mergedFilters.type = state.formatType;
+  }
+  const query = new URLSearchParams({ sort: state.sort, ...mergedFilters }).toString();
+
+  let data;
+  try {
+    data = await api(`/releases?${query}`);
+  } catch (error) {
+    renderLoadError("releaseGrid", () => loadReleases(filters));
+    return;
+  }
+
+  const filtered = filterByGenreBucket(data.releases);
+  state.releases = filtered;
+  if (filters.q !== undefined) renderSearchResults(filtered, filters.q);
 
   $('releaseGrid').innerHTML =
-    data.releases.map((release) => renderReleaseCard(release)).join("") ||
-    '<div class="empty-state"><p class="empty-state-title">No releases yet.</p><p class="empty-state-text">Upload your music and start building your audience on IndieWave.</p><a href="#dashboard" class="btn btn-primary empty-state-btn">Upload Your Music</a></div>';
+    filtered.map((release) => renderReleaseCard(release)).join("") ||
+    (data.releases.length
+      ? '<div class="empty-state"><p class="empty-state-title">No music found in this genre yet.</p><p class="empty-state-text">Try a different genre or format, or explore All.</p></div>'
+      : '<div class="empty-state"><p class="empty-state-title">No releases yet.</p><p class="empty-state-text">Upload your music and start building your audience on IndieWave.</p><a href="#dashboard" class="btn btn-primary empty-state-btn">Upload Your Music</a></div>');
 
   const artistsMap = new Map();
-  data.releases.forEach((release) => {
+  filtered.forEach((release) => {
     if (!artistsMap.has(release.artist_id)) artistsMap.set(release.artist_id, release);
   });
 
   $("artistGrid").innerHTML = [...artistsMap.values()].map((artistRelease) => renderArtistCard(artistRelease)).join("");
 
-  renderCategoryLists(data.releases);
-  renderTaxonomy(data.releases);
+  renderCategoryLists(filtered);
+  renderTaxonomy(filtered);
 }
 
 async function loadTrendingReleases(filters = {}) {
-  const query = new URLSearchParams({ sort: state.trendingSort, ...filters }).toString();
-  const data = await api(`/releases?${query}`);
-  state.trendingReleases = data.releases;
+  const mergedFilters = { ...filters };
+  if (state.formatType && state.formatType !== "all" && mergedFilters.type === undefined) {
+    mergedFilters.type = state.formatType;
+  }
+  const query = new URLSearchParams({ sort: state.trendingSort, ...mergedFilters }).toString();
 
   if (!$("trendingGrid")) return;
+
+  let data;
+  try {
+    data = await api(`/releases?${query}`);
+  } catch (error) {
+    renderLoadError("trendingGrid", () => loadTrendingReleases(filters));
+    return;
+  }
+
+  const filtered = filterByGenreBucket(data.releases);
+  state.trendingReleases = filtered;
+
   $("trendingGrid").innerHTML =
-    data.releases.map((release) => renderReleaseCard(release)).join("") ||
-    '<div class="empty-state"><p class="empty-state-title">No trending releases yet.</p><p class="empty-state-text">Be the first to upload and get discovered on IndieWave.</p><a href="#dashboard" class="btn btn-primary empty-state-btn">Upload Your Music</a></div>';
+    filtered.map((release) => renderReleaseCard(release)).join("") ||
+    (data.releases.length
+      ? '<div class="empty-state"><p class="empty-state-title">No music found in this genre yet.</p><p class="empty-state-text">Try a different genre or format, or explore All.</p></div>'
+      : '<div class="empty-state"><p class="empty-state-title">No trending releases yet.</p><p class="empty-state-text">Be the first to upload and get discovered on IndieWave.</p><a href="#dashboard" class="btn btn-primary empty-state-btn">Upload Your Music</a></div>');
 }
 
 function renderCategoryLists(releases) {
@@ -521,12 +680,9 @@ function renderCategoryLists(releases) {
 }
 
 function renderTaxonomy(releases) {
-  const genres = [...new Set(releases.map((release) => release.genre).filter(Boolean))];
+  // Genre chips use the standardized GENRE_BUCKET_DEFS taxonomy (rendered once via
+  // renderGenreBucketChips) so there is a single genre-filtering system on the page.
   const countries = [...new Set(releases.map((release) => release.country).filter(Boolean))];
-
-  $("genreChips").innerHTML = genres
-    .map((genre) => `<button class=\"chip\" onclick=\"filterByGenre('${escapeHtml(genre)}')\">${escapeHtml(genre)}</button>`)
-    .join("");
 
   $("countryChips").innerHTML = countries
     .map((country) => `<button class=\"chip\" onclick=\"filterByCountry('${escapeHtml(country)}')\">${escapeHtml(country)}</button>`)
@@ -1550,8 +1706,7 @@ window.deleteRelease = async function deleteRelease(releaseId) {
 };
 
 window.filterByGenre = async function filterByGenre(genre) {
-  await loadReleases({ genre });
-  await loadTrendingReleases({ genre });
+  await selectGenreBucket(normalizeGenreBucket(genre));
 };
 
 window.filterByCountry = async function filterByCountry(country) {
@@ -1909,6 +2064,10 @@ function wireEvents() {
       await loadReleases();
     });
   });
+
+  renderGenreBucketChips();
+  renderFormatChips();
+  wireGenreGridCards();
 
   $("reportForm").addEventListener("submit", async (event) => {
     event.preventDefault();

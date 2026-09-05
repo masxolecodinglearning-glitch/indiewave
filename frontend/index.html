@@ -26,6 +26,7 @@
         <a href="#marketplace">Marketplace</a>
         <a href="#dashboard">Upload</a>
         <a href="#indieWaveAi">IndieWave AI</a>
+        <a href="#artistGrowth" data-app-view="artistGrowth">Artist Growth</a>
       </nav>
       <div class="top-actions">
         <button id="messagesBtn" class="btn btn-outline hidden" type="button">Messages</button>
@@ -54,6 +55,7 @@
         <a href="#videos" data-app-view="videos">Videos &amp; Live</a>
         <a href="#messages" data-app-view="messages">Messages</a>
         <a href="#indieWaveAi" data-app-view="ai">IndieWave AI</a>
+        <a href="#artistGrowth" data-app-view="artistGrowth">Artist Growth</a>
         <a href="#dashboard" data-app-view="dashboard">Artist Workspace</a>
         <a href="#videos" data-app-view="more">More</a>
       </nav>
@@ -124,23 +126,28 @@
         </div>
 
         <div class="genre-grid">
-          <article class="genre-card" style="--genre-image: url('https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg');"><h3>Hip Hop</h3></article>
-          <article class="genre-card" style="--genre-image: url('https://images.pexels.com/photos/1540406/pexels-photo-1540406.jpeg');"><h3>Amapiano</h3></article>
-          <article class="genre-card" style="--genre-image: url('https://images.pexels.com/photos/1926769/pexels-photo-1926769.jpeg');"><h3>Kasi Rap</h3></article>
-          <article class="genre-card" style="--genre-image: url('https://images.pexels.com/photos/164938/pexels-photo-164938.jpeg');"><h3>Afrobeats</h3></article>
-          <article class="genre-card" style="--genre-image: url('https://images.pexels.com/photos/4913188/pexels-photo-4913188.jpeg');"><h3>R&amp;B</h3></article>
-          <article class="genre-card" style="--genre-image: url('https://images.pexels.com/photos/167636/pexels-photo-167636.jpeg');"><h3>House</h3></article>
-          <article class="genre-card" style="--genre-image: url('https://images.pexels.com/photos/995301/pexels-photo-995301.jpeg');"><h3>Drill</h3></article>
-          <article class="genre-card" style="--genre-image: url('https://images.pexels.com/photos/210922/pexels-photo-210922.jpeg');"><h3>Trap</h3></article>
-          <article class="genre-card" style="--genre-image: url('https://images.pexels.com/photos/3756766/pexels-photo-3756766.jpeg');"><h3>Soul</h3></article>
-          <article class="genre-card" style="--genre-image: url('https://images.pexels.com/photos/3799828/pexels-photo-3799828.jpeg');"><h3>Jazz</h3></article>
-          <article class="genre-card" style="--genre-image: url('https://images.pexels.com/photos/1916826/pexels-photo-1916826.jpeg');"><h3>Gospel</h3></article>
-          <article class="genre-card" style="--genre-image: url('https://images.pexels.com/photos/5702305/pexels-photo-5702305.jpeg');"><h3>Pop</h3></article>
+          <article class="genre-card" data-bucket="hiphop" style="--genre-image: url('https://images.pexels.com/photos/1763075/pexels-photo-1763075.jpeg');"><h3>Hip Hop</h3></article>
+          <article class="genre-card" data-bucket="amapiano" style="--genre-image: url('https://images.pexels.com/photos/1540406/pexels-photo-1540406.jpeg');"><h3>Amapiano</h3></article>
+          <article class="genre-card" data-bucket="hiphop" style="--genre-image: url('https://images.pexels.com/photos/1926769/pexels-photo-1926769.jpeg');"><h3>Kasi Rap</h3></article>
+          <article class="genre-card" data-bucket="afrobeats" style="--genre-image: url('https://images.pexels.com/photos/164938/pexels-photo-164938.jpeg');"><h3>Afrobeats</h3></article>
+          <article class="genre-card" data-bucket="rnb" style="--genre-image: url('https://images.pexels.com/photos/4913188/pexels-photo-4913188.jpeg');"><h3>R&amp;B</h3></article>
+          <article class="genre-card" data-bucket="house" style="--genre-image: url('https://images.pexels.com/photos/167636/pexels-photo-167636.jpeg');"><h3>House</h3></article>
+          <article class="genre-card" data-bucket="drill" style="--genre-image: url('https://images.pexels.com/photos/995301/pexels-photo-995301.jpeg');"><h3>Drill</h3></article>
+          <article class="genre-card" data-bucket="trap" style="--genre-image: url('https://images.pexels.com/photos/210922/pexels-photo-210922.jpeg');"><h3>Trap</h3></article>
+          <article class="genre-card" data-bucket="soul" style="--genre-image: url('https://images.pexels.com/photos/3756766/pexels-photo-3756766.jpeg');"><h3>Soul</h3></article>
+          <article class="genre-card" data-bucket="jazz" style="--genre-image: url('https://images.pexels.com/photos/3799828/pexels-photo-3799828.jpeg');"><h3>Jazz</h3></article>
+          <article class="genre-card" data-bucket="gospel" style="--genre-image: url('https://images.pexels.com/photos/1916826/pexels-photo-1916826.jpeg');"><h3>Gospel</h3></article>
+          <article class="genre-card" data-bucket="pop" style="--genre-image: url('https://images.pexels.com/photos/5702305/pexels-photo-5702305.jpeg');"><h3>Pop</h3></article>
         </div>
 
         <div class="taxonomy-wrap glass">
           <h3>Browse Live Catalog Genres</h3>
           <div id="genreChips" class="chips-wrap"></div>
+        </div>
+
+        <div class="taxonomy-wrap glass">
+          <h3>Browse by Format</h3>
+          <div id="formatChips" class="chips-wrap"></div>
         </div>
       </section>
 
@@ -254,6 +261,7 @@
             <p class="section-kicker">Business</p>
             <button class="btn btn-outline" type="button" data-app-view="marketplace">Marketplace</button>
             <button class="btn btn-outline" type="button" data-app-view="dashboard">Artist Workspace</button>
+            <button class="btn btn-outline" type="button" data-app-view="artistGrowth">Artist Growth</button>
           </article>
         </div>
       </section>
@@ -284,6 +292,120 @@
           <div>
             <p class="section-kicker">Future Business Features</p>
             <h2>IndieWave Business Hub</h2>
+          </div>
+        </div>
+      </section>
+
+      <section id="artistGrowth" class="section secondary-view-section">
+        <div class="section-title-row">
+          <div>
+            <p class="section-kicker">Grow Your Career</p>
+            <h2>Artist Growth</h2>
+          </div>
+        </div>
+        <p class="release-meta">Legitimate industry organisations, distribution platforms and promotional tools for independent artists. External services may charge fees where applicable.</p>
+
+        <div class="artist-growth-group">
+          <h3>South African Music Industry</h3>
+          <div class="artist-growth-grid">
+            <article class="glass artist-growth-card">
+              <div class="artist-growth-icon" aria-hidden="true">RiSA</div>
+              <h4>RiSA</h4>
+              <p class="release-meta">Recording Industry of South Africa — recording industry resources, certifications and industry information.</p>
+              <a class="btn btn-outline" href="https://www.risa.org.za" target="_blank" rel="noopener noreferrer">Visit Website</a>
+            </article>
+            <article class="glass artist-growth-card">
+              <div class="artist-growth-icon" aria-hidden="true">SAMPRA</div>
+              <h4>SAMPRA</h4>
+              <p class="release-meta">South African Music Performance Rights Association — recording artists/record companies and needletime rights.</p>
+              <a class="btn btn-outline" href="https://www.sampra.org.za" target="_blank" rel="noopener noreferrer">Visit Website</a>
+            </article>
+            <article class="glass artist-growth-card">
+              <div class="artist-growth-icon" aria-hidden="true">SAMRO</div>
+              <h4>SAMRO</h4>
+              <p class="release-meta">Southern African Music Rights Organisation — songwriters, composers, authors and publishers / performing rights.</p>
+              <a class="btn btn-outline" href="https://www.samro.org.za" target="_blank" rel="noopener noreferrer">Visit Website</a>
+            </article>
+          </div>
+        </div>
+
+        <div class="artist-growth-group">
+          <h3>Artist Platforms</h3>
+          <div class="artist-growth-grid">
+            <article class="glass artist-growth-card">
+              <div class="artist-growth-icon" aria-hidden="true">Spotify</div>
+              <h4>Spotify for Artists</h4>
+              <p class="release-meta">Manage your artist profile, view analytics and access official Spotify artist tools.</p>
+              <a class="btn btn-outline" href="https://artists.spotify.com" target="_blank" rel="noopener noreferrer">Visit Website</a>
+            </article>
+            <article class="glass artist-growth-card">
+              <div class="artist-growth-icon" aria-hidden="true">Apple</div>
+              <h4>Apple Music for Artists</h4>
+              <p class="release-meta">Artist analytics, profile management and promotional tools from Apple Music.</p>
+              <a class="btn btn-outline" href="https://artists.apple.com" target="_blank" rel="noopener noreferrer">Visit Website</a>
+            </article>
+            <article class="glass artist-growth-card">
+              <div class="artist-growth-icon" aria-hidden="true">YouTube</div>
+              <h4>YouTube for Artists</h4>
+              <p class="release-meta">Official YouTube resources for artist growth, analytics and channel tools.</p>
+              <a class="btn btn-outline" href="https://artists.youtube.com" target="_blank" rel="noopener noreferrer">Visit Website</a>
+            </article>
+          </div>
+        </div>
+
+        <div class="artist-growth-group">
+          <h3>Music Promotion</h3>
+          <div class="artist-growth-grid">
+            <article class="glass artist-growth-card">
+              <div class="artist-growth-icon" aria-hidden="true">Submit</div>
+              <h4>SubmitHub</h4>
+              <p class="release-meta">Submit music to curators, blogs and playlisters for promotional consideration.</p>
+              <p class="release-meta">External service — fees may apply.</p>
+              <a class="btn btn-outline" href="https://www.submithub.com" target="_blank" rel="noopener noreferrer">Visit Website</a>
+            </article>
+            <article class="glass artist-growth-card">
+              <div class="artist-growth-icon" aria-hidden="true">Groover</div>
+              <h4>Groover</h4>
+              <p class="release-meta">Music promotion and direct connections with curators and music professionals.</p>
+              <p class="release-meta">External service — fees may apply.</p>
+              <a class="btn btn-outline" href="https://groover.co" target="_blank" rel="noopener noreferrer">Visit Website</a>
+            </article>
+          </div>
+        </div>
+
+        <div class="artist-growth-group">
+          <h3>Artist Branding</h3>
+          <div class="artist-growth-grid">
+            <article class="glass artist-growth-card">
+              <div class="artist-growth-icon" aria-hidden="true">Tree</div>
+              <h4>Linktree</h4>
+              <p class="release-meta">Create one central link for your music and social profiles.</p>
+              <a class="btn btn-outline" href="https://linktr.ee" target="_blank" rel="noopener noreferrer">Visit Website</a>
+            </article>
+          </div>
+        </div>
+
+        <div class="artist-growth-group">
+          <h3>Independent Music</h3>
+          <div class="artist-growth-grid">
+            <article class="glass artist-growth-card">
+              <div class="artist-growth-icon" aria-hidden="true">BC</div>
+              <h4>Bandcamp</h4>
+              <p class="release-meta">Independent music publishing, sales, merchandise and discovery.</p>
+              <a class="btn btn-outline" href="https://bandcamp.com" target="_blank" rel="noopener noreferrer">Visit Website</a>
+            </article>
+          </div>
+        </div>
+
+        <div class="artist-growth-group">
+          <h3>Ask IndieWave AI</h3>
+          <p class="release-meta">Get guidance from IndieWave AI, then explore the resources above.</p>
+          <div class="chip-group">
+            <button type="button" class="chip" onclick="askIndieWaveAI('How do I promote my new single?')">Promote my music</button>
+            <button type="button" class="chip" onclick="askIndieWaveAI('How do I register my music rights in South Africa?')">Register my rights</button>
+            <button type="button" class="chip" onclick="askIndieWaveAI('How do I get my music in front of curators?')">Reach curators</button>
+            <button type="button" class="chip" onclick="askIndieWaveAI('How do I build my artist profile?')">Build my profile</button>
+            <button type="button" class="chip" onclick="askIndieWaveAI('How should I release my first EP?')">Release my first EP</button>
           </div>
         </div>
       </section>

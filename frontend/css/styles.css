@@ -668,6 +668,52 @@ textarea::placeholder {
   box-shadow: var(--glow);
 }
 
+.genre-card[data-bucket] {
+  cursor: pointer;
+}
+
+.genre-card.active {
+  outline: 2px solid var(--pink);
+  outline-offset: 2px;
+}
+
+.artist-growth-group {
+  margin-top: 1.4rem;
+}
+
+.artist-growth-group h3 {
+  margin: 0 0 0.6rem;
+}
+
+.artist-growth-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.9rem;
+}
+
+.artist-growth-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.92rem;
+}
+
+.artist-growth-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--pink), var(--pink-deep));
+  color: var(--white);
+  font-weight: 700;
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+  text-align: center;
+  padding: 0 0.2rem;
+}
+
 .taxonomy-wrap {
   margin-top: 0.95rem;
   padding: 0.9rem;
