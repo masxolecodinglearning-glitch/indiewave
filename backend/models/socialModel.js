@@ -25,6 +25,14 @@ async function toggleFollow(followerId, artistId) {
   return { followed: true };
 }
 
+async function checkFollows(followerId, artistId) {
+  const { rows } = await db.query(
+    "SELECT 1 FROM followers WHERE follower_id = $1 AND artist_id = $2 LIMIT 1",
+    [followerId, artistId]
+  );
+  return rows.length > 0;
+}
+
 async function toggleLike(userId, releaseId) {
   const existing = await db.query("SELECT id FROM likes WHERE user_id = $1 AND release_id = $2", [
     userId,
@@ -97,6 +105,7 @@ async function getTrackComments(trackId) {
 
 module.exports = {
   toggleFollow,
+  checkFollows,
   toggleLike,
   addComment,
   getComments,

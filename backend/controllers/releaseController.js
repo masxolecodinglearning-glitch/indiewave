@@ -223,7 +223,7 @@ async function deleteRelease(req, res, next) {
 async function getRelease(req, res, next) {
   try {
     const releaseId = parsePositiveId(req.params.id, "Release id");
-    const release = await releaseModel.getReleaseById(releaseId);
+    const release = await releaseModel.getReleaseById(releaseId, req.user?.id);
     if (!release) throw new ApiError(404, "Release not found");
 
     const tracks = await releaseModel.listTracksByRelease(releaseId);
@@ -244,6 +244,7 @@ async function listReleases(req, res, next) {
       country: req.query.country,
       category: req.query.category,
       q: req.query.q,
+      viewerId: req.user?.id,
       limit: Number(req.query.limit || 20),
       offset: Number(req.query.offset || 0)
     });

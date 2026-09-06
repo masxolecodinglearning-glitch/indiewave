@@ -2,6 +2,7 @@ const ApiError = require("../utils/apiError");
 const messageModel = require("../models/messageModel");
 const userModel = require("../models/userModel");
 const notificationModel = require("../models/notificationModel");
+const socialModel = require("../models/socialModel");
 
 async function listConversations(req, res, next) {
   try {
@@ -22,6 +23,9 @@ async function createOrOpenConversation(req, res, next) {
     const otherUser = await userModel.findById(otherUserId);
     if (!otherUser) {
       throw new ApiError(404, "User not found");
+    }
+    if (!(await socialModel.checkFollows(req.user.id, otherUserId))) {
+      throw new ApiError(403, "You can only message users you follow.");
     }
 
     const conversation = await messageModel.getOrCreateConversation(req.user.id, otherUserId);
@@ -53,14 +57,18 @@ async function sendMessage(req, res, next) {
       throw new ApiError(400, "Conversation ID is required");
     }
 
+    const recipient = await messageModel.getConversationRecipient(conversationId, req.user.id);
+    if (!recipient || recipient.id === req.user.id || !(await socialModel.checkFollows(req.user.id, recipient.id))) {
+      throw new ApiError(403, "You can only message users you follow.");
+    }
+
     const message = await messageModel.sendMessage({
       conversationId,
       senderId: req.user.id,
       message: req.body.message
     });
 
-    const recipient = await messageModel.getConversationRecipient(conversationId, req.user.id);
-    if (recipient && recipient.id !== req.user.id) {
+    if (recipient) {
       await notificationModel.createNotification({
         userId: recipient.id,
         type: "message",

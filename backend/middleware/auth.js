@@ -17,6 +17,18 @@ function requireAuth(req, res, next) {
   }
 }
 
+function optionalAuth(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) return next();
+
+  try {
+    req.user = verifyToken(authHeader.split(" ")[1]);
+  } catch (error) {
+    // Treat an invalid optional token as anonymous for public reads.
+  }
+  return next();
+}
+
 function requireAdmin(req, res, next) {
   if (!req.user || req.user.role !== "admin") {
     return next(new ApiError(403, "Admin privileges required"));
@@ -26,5 +38,6 @@ function requireAdmin(req, res, next) {
 
 module.exports = {
   requireAuth,
+  optionalAuth,
   requireAdmin
 };

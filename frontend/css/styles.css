@@ -509,6 +509,15 @@ textarea::placeholder {
   border-color: transparent;
 }
 
+.heart-action.is-liked {
+  color: var(--pink-soft);
+  border-color: rgba(255, 114, 184, 0.85);
+}
+
+.buy-locked {
+  opacity: 0.72;
+}
+
 .release-grid,
 .artist-grid,
 .future-grid,

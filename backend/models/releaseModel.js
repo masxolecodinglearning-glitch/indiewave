@@ -115,14 +115,19 @@ async function softDeleteRelease(releaseId, artistId) {
   return rows[0] || null;
 }
 
-async function getReleaseById(releaseId) {
+async function getReleaseById(releaseId, viewerId = null) {
+  const viewerSelect = viewerId
+    ? `,
+      EXISTS (SELECT 1 FROM likes l WHERE l.release_id = r.id AND l.user_id = $2) AS liked_by_user,
+      EXISTS (SELECT 1 FROM followers f WHERE f.follower_id = $2 AND f.artist_id = r.artist_id) AS is_following`
+    : "";
   const query = `
-    SELECT r.*, u.stage_name, u.slug AS artist_slug, u.profile_image
+    SELECT r.*, u.stage_name, u.slug AS artist_slug, u.profile_image${viewerSelect}
     FROM releases r
     JOIN users u ON u.id = r.artist_id
     WHERE r.id = $1 AND r.is_deleted = false
   `;
-  const { rows } = await db.query(query, [releaseId]);
+  const { rows } = await db.query(query, viewerId ? [releaseId, viewerId] : [releaseId]);
   return rows[0] || null;
 }
 
@@ -134,7 +139,8 @@ async function listReleases({
   category,
   q,
   limit = 20,
-  offset = 0
+  offset = 0,
+  viewerId = null
 }) {
   let orderBy = "r.created_at DESC";
   if (sort === "trending") orderBy = "(r.download_count + r.view_count + r.listen_count + r.video_view_count) DESC, r.created_at DESC";
@@ -174,11 +180,17 @@ async function listReleases({
     )`);
   }
 
+  if (viewerId) values.push(viewerId);
+  const viewerSelect = viewerId
+    ? `,
+      EXISTS (SELECT 1 FROM likes l WHERE l.release_id = r.id AND l.user_id = $${values.length}) AS liked_by_user,
+      EXISTS (SELECT 1 FROM followers f WHERE f.follower_id = $${values.length} AND f.artist_id = r.artist_id) AS is_following`
+    : "";
   values.push(limit, offset);
   const query = `
     SELECT r.*, u.stage_name, u.slug AS artist_slug, u.profile_image,
       (SELECT COUNT(*) FROM likes l WHERE l.release_id = r.id) AS likes,
-      (SELECT COUNT(*) FROM comments c WHERE c.release_id = r.id) AS comments
+      (SELECT COUNT(*) FROM comments c WHERE c.release_id = r.id) AS comments${viewerSelect}
     FROM releases r
     JOIN users u ON u.id = r.artist_id
     WHERE ${where.join(" AND ")}

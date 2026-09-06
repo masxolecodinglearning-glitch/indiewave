@@ -21,6 +21,7 @@ const state = {
   activeConversationUser: null,
   messageView: "list",
   conversations: [],
+  pendingLikes: new Set(),
   ai: {
     loading: false,
     lastRequest: null,
@@ -558,13 +559,12 @@ function renderReleaseCard(release, mine = false) {
       <p class="release-meta">Downloads: ${release.download_count || 0} | Plays: ${release.listen_count || 0}</p>
       <div class="release-actions">
         <button class="chip" onclick="${actionStop} playRelease(${releaseId})">Play</button>
-        <button class="chip" onclick="${actionStop} shareRelease(${releaseId})">Share</button>
         ${isUploaded ? `<button class="chip" onclick="${actionStop} downloadRelease(${releaseId})">Download</button>` : ""}
         ${isPreSaveOnly ? `<a class="chip" href="${escapeHtml(release.embed_url)}" target="_blank" rel="noopener noreferrer">Pre-Save</a>` : ""}
-        <button class="chip" onclick="${actionStop} likeRelease(${releaseId})">Like</button>
+        <button type="button" class="chip heart-action${release.liked_by_user ? " is-liked" : ""}" aria-label="${release.liked_by_user ? "Unlike" : "Like"} this release" title="${release.liked_by_user ? "Unlike" : "Like"} this release" onclick="${actionStop} likeRelease(${releaseId})">${release.liked_by_user ? "♥" : "♡"}</button>
+        <button class="chip" onclick="${actionStop} shareRelease(${releaseId})" aria-label="Share release" title="Share release">↗ Share</button>
+        <button type="button" class="chip buy-locked" onclick="${actionStop} showBuyComingSoon()" aria-label="Buy locked" title="Purchases coming soon">🔒 Buy</button>
         <button class="chip" onclick="${actionStop} showComments(${releaseId})">Comments</button>
-        ${state.user && Number(release.artist_id) !== Number(state.user.id) ? `<button class="chip" onclick="${actionStop} openConversation(${release.artist_id})">Message</button>` : ""}
-        ${state.user ? `<button class="chip" onclick="${actionStop} openReportForRelease(${releaseId})">Report</button>` : ""}
         ${mine ? `<button class="chip" onclick="${actionStop} deleteRelease(${releaseId})">Delete</button>` : ""}
       </div>
     </article>
@@ -593,7 +593,7 @@ function renderArtistCard(artist) {
       <p class="release-meta">${escapeHtml(artist.genre || "")}</p>
       <div class="release-actions">
         <button class="chip" onclick="viewArtist('${escapeHtml(artist.artist_slug || artist.slug || "")}')">Profile</button>
-        ${state.user && Number(artist.artist_id || artist.id) !== Number(state.user.id) ? `<button class="chip" onclick="openConversation(${artist.artist_id || artist.id})">Message</button>` : ""}
+        ${state.user && Number(artist.artist_id || artist.id) !== Number(state.user.id) ? (artist.is_following ? `<button class="chip" onclick="openConversation(${artist.artist_id || artist.id})">Message</button>` : `<button class="chip" type="button" disabled title="Follow this artist to send a message">Follow to message</button>`) : ""}
         ${state.user ? `<button class=\"chip\" onclick=\"followArtist(${artist.artist_id || artist.id})\">Follow</button>` : ""}
       </div>
     </article>
@@ -1389,11 +1389,11 @@ window.openReleaseDetail = async function openReleaseDetail(releaseId) {
               </div>
               <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
                 <button type="button" class="chip" onclick="event.stopPropagation(); playTrackFromRelease(${release.id}, ${index})">Play</button>
-                <button type="button" class="chip" onclick="event.stopPropagation(); shareTrackFromRelease(${release.id}, ${index})">Share</button>
                 ${release.content_type === "upload" ? `<button type="button" class="chip" onclick="event.stopPropagation(); downloadTrackFromRelease(${release.id}, ${index})">Download</button>` : ""}
-                <button type="button" class="chip" onclick="event.stopPropagation(); likeTrackFromRelease(${release.id}, ${index})">Like</button>
+                <button type="button" class="chip heart-action" aria-label="Like this track" title="Like this track" data-track-like="${release.id}-${index}" onclick="event.stopPropagation(); likeTrackFromRelease(${release.id}, ${index})">♡</button>
+                <button type="button" class="chip" onclick="event.stopPropagation(); shareTrackFromRelease(${release.id}, ${index})" aria-label="Share track" title="Share track">↗ Share</button>
+                <button type="button" class="chip buy-locked" onclick="event.stopPropagation(); showBuyComingSoon()" aria-label="Buy locked" title="Purchases coming soon">🔒 Buy</button>
                 <button type="button" class="chip" onclick="event.stopPropagation(); showTrackComments(${release.id}, ${index})">Comments</button>
-                ${state.user ? `<button type="button" class="chip" onclick="event.stopPropagation(); openReportForTrack(${release.id}, ${index})">Report</button>` : ""}
               </div>
             </div>
           `).join("") || '<p class="release-meta">No tracks available.</p>'}
@@ -1531,6 +1531,10 @@ window.downloadRelease = async function downloadRelease(releaseId) {
   }
 };
 
+window.showBuyComingSoon = function showBuyComingSoon() {
+  notify("Purchases are coming soon. Payment integration is not yet available.");
+};
+
 window.shareRelease = async function shareRelease(releaseId) {
   let release = [...state.releases, ...state.trendingReleases].find((item) => Number(item.id) === Number(releaseId)) || state.currentRelease;
 
@@ -1596,10 +1600,17 @@ window.likeRelease = async function likeRelease(releaseId) {
     notify("Login required");
     return;
   }
-  const result = await api(`/social/releases/${releaseId}/like`, { method: "POST" });
-  notify(result.liked ? "Release liked" : "Like removed");
-  await loadReleases();
-  await loadTrendingReleases();
+  const key = `release:${releaseId}`;
+  if (state.pendingLikes.has(key)) return;
+  state.pendingLikes.add(key);
+  try {
+    const result = await api(`/social/releases/${releaseId}/like`, { method: "POST" });
+    notify(result.liked ? "Release liked" : "Like removed");
+    await loadReleases();
+    await loadTrendingReleases();
+  } finally {
+    state.pendingLikes.delete(key);
+  }
 };
 
 window.likeTrackFromRelease = async function likeTrackFromRelease(releaseId, trackIndex = 0) {
@@ -1608,15 +1619,30 @@ window.likeTrackFromRelease = async function likeTrackFromRelease(releaseId, tra
     return;
   }
 
-  const release = [...state.releases, ...state.trendingReleases].find((item) => Number(item.id) === Number(releaseId));
-  const track = release && Array.isArray(release.tracks) ? release.tracks[trackIndex] : null;
-  if (!track || !track.id) {
-    notify("Track engagement is unavailable");
-    return;
-  }
+  const key = `track:${releaseId}:${trackIndex}`;
+  if (state.pendingLikes.has(key)) return;
+  state.pendingLikes.add(key);
 
-  const result = await api(`/social/tracks/${track.id}/like`, { method: "POST" });
-  notify(result.liked ? "Track liked" : "Track like removed");
+  try {
+    const release = [...state.releases, ...state.trendingReleases].find((item) => Number(item.id) === Number(releaseId));
+    const track = release && Array.isArray(release.tracks) ? release.tracks[trackIndex] : null;
+    if (!track || !track.id) {
+      notify("Track engagement is unavailable");
+      return;
+    }
+
+    const result = await api(`/social/tracks/${track.id}/like`, { method: "POST" });
+    const button = document.querySelector(`[data-track-like="${releaseId}-${trackIndex}"]`);
+    if (button) {
+      button.textContent = result.liked ? "♥" : "♡";
+      button.classList.toggle("is-liked", result.liked);
+      button.setAttribute("aria-label", `${result.liked ? "Unlike" : "Like"} this track`);
+      button.title = `${result.liked ? "Unlike" : "Like"} this track`;
+    }
+    notify(result.liked ? "Track liked" : "Track like removed");
+  } finally {
+    state.pendingLikes.delete(key);
+  }
 };
 
 window.showTrackComments = async function showTrackComments(releaseId, trackIndex = 0) {
