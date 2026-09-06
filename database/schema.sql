@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS users (
   role VARCHAR(20) NOT NULL DEFAULT 'artist' CHECK (role IN ('artist', 'listener', 'admin')),
   slug VARCHAR(160) UNIQUE NOT NULL,
   profile_image TEXT,
+  terms_version VARCHAR(32),
+  terms_accepted_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -39,6 +41,10 @@ CREATE TABLE IF NOT EXISTS releases (
   embed_provider VARCHAR(30) CHECK (embed_provider IN ('youtube', 'spotify', 'ditto', 'distrokid')),
   embed_url TEXT,
   embed_id VARCHAR(255),
+  price NUMERIC(12,2) NOT NULL DEFAULT 0,
+  currency VARCHAR(10) NOT NULL DEFAULT 'ZAR',
+  rights_confirmed BOOLEAN NOT NULL DEFAULT FALSE,
+  rights_confirmed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

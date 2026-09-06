@@ -234,6 +234,35 @@
         </div>
       </section>
 
+      <section id="terms" class="section secondary-view-section">
+        <div class="section-title-row"><div><p class="section-kicker">Creator Policy</p><h2>IndieWave Terms and Creator Policy</h2></div><button id="acceptTermsBtn" class="btn btn-primary hidden" type="button">Accept Current Terms</button></div>
+        <article class="glass policy-panel">
+          <p>Current terms version: <span id="termsVersion">2026-09-06</span></p>
+          <h3>User content responsibility</h3>
+          <p>Creators retain ownership of their content and are responsible for having the legal rights, licenses, permissions, and authorization needed to upload and distribute it.</p>
+          <h3>Type beats, mixes, and copyright</h3>
+          <p>Public availability does not make a type beat or instrumental yours. A producer's beat, DJ mix, recording, or included audio may be uploaded only when you own it or have permission or a license. You must be able to prove your rights if challenged. IndieWave may remove violating content and restrict or terminate repeat infringers.</p>
+          <h3>Reporting and takedowns</h3>
+          <p>Rights holders may report suspected infringement through IndieWave's moderation process. Creators remain responsible for their uploads.</p>
+        </article>
+      </section>
+
+      <section id="beatSellers" class="section secondary-view-section">
+        <div class="section-title-row"><div><p class="section-kicker">Producer Workspace</p><h2>Beat Sellers</h2></div></div>
+        <div id="beatGrid" class="release-grid"></div>
+        <form id="beatForm" class="glass form-card dashboard-form" enctype="multipart/form-data">
+          <div class="form-header"><h3>Publish a beat</h3></div>
+          <input name="title" placeholder="Beat title" required />
+          <textarea name="description" placeholder="Description"></textarea>
+          <input name="genre" placeholder="Genre" required />
+          <input name="price" type="number" min="0" step="0.01" placeholder="Price" required />
+          <input name="audio" type="file" accept="audio/mpeg" required />
+          <input name="artwork" type="file" accept="image/png,image/jpeg,image/webp" required />
+          <label class="policy-check"><input name="rightsConfirmed" type="checkbox" value="true" required /> I confirm that I own or am licensed to use this beat, mix, recording, and included content.</label>
+          <button type="submit" class="btn btn-primary">Publish Beat</button>
+        </form>
+      </section>
+
       <section id="moreHub" class="section secondary-view-section">
         <div class="section-title-row">
           <div>
@@ -259,6 +288,7 @@
           </article>
           <article class="more-hub-group glass">
             <p class="section-kicker">Business</p>
+            <button class="btn btn-outline" type="button" data-app-view="beatSellers">Beat Sellers</button>
             <button class="btn btn-outline" type="button" data-app-view="marketplace">Marketplace</button>
             <button class="btn btn-outline" type="button" data-app-view="dashboard">Artist Workspace</button>
             <button class="btn btn-outline" type="button" data-app-view="artistGrowth">Artist Growth</button>
@@ -598,6 +628,11 @@
             <input name="genre" placeholder="Genre" required />
             <input name="category" placeholder="Category" required />
             <input name="country" placeholder="Country" required />
+            <div class="form-grid-two">
+              <label>Intended price<input name="price" type="number" min="0" step="0.01" value="0" required /></label>
+              <label>Currency<input name="currency" value="ZAR" maxlength="10" required /></label>
+            </div>
+            <label class="policy-check"><input name="rightsConfirmed" type="checkbox" value="true" required /> I confirm that I own this content or have the necessary rights, license, or permission to upload and distribute it on IndieWave.</label>
 
             <!-- Upload file section (shown by default) -->
             <div id="releaseUploadSection">
@@ -850,6 +885,7 @@
         <input name="email" type="email" placeholder="Email" required />
         <input name="password" type="password" minlength="8" placeholder="Password (min 8 chars)" required />
         <textarea name="bio" placeholder="Bio"></textarea>
+        <label class="policy-check"><input name="acceptTerms" type="checkbox" value="true" required /> I accept the <a href="#terms" data-app-view="terms">IndieWave Terms and Creator Policy</a>.</label>
         <select name="role">
           <option value="artist">Artist</option>
           <option value="listener">Listener</option>

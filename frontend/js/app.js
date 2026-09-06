@@ -1,4 +1,5 @@
 const API_BASE = "https://indiewave-09eu.onrender.com/api";
+const TERMS_VERSION = "2026-09-06";
 const STORAGE_KEY = "indiewave_auth";
 
 const state = {
@@ -346,6 +347,16 @@ function toggleAuthUI() {
   const myEventsPanel = $("mktMyEvents");
   if (myProductsPanel) myProductsPanel.classList.toggle("hidden", !authenticated || !isArtist);
   if (myEventsPanel) myEventsPanel.classList.toggle("hidden", !authenticated || !isArtist);
+  const acceptTermsBtn = $("acceptTermsBtn");
+  if (acceptTermsBtn) acceptTermsBtn.classList.toggle("hidden", !authenticated || (state.user?.terms_version === TERMS_VERSION && state.user?.terms_accepted_at));
+}
+
+async function acceptCurrentTerms() {
+  const data = await api("/auth/terms", { method: "POST" });
+  state.user = data.user;
+  saveAuth();
+  toggleAuthUI();
+  notify("Terms accepted");
 }
 
 function showHomeView() {
@@ -364,6 +375,7 @@ function setAppView(view) {
     notifications: ["messages"],
     genres: ["genres", "countries"],
     videos: ["videos"],
+    beatSellers: ["beatSellers"],
     messages: ["messages"],
     ai: ["indieWaveAi"],
     artistGrowth: ["artistGrowth"],
@@ -540,6 +552,7 @@ function renderReleaseCard(release, mine = false) {
   }[release.embed_provider];
   const isPreSaveOnly = release.embed_provider === "ditto" || release.embed_provider === "distrokid";
   const isUploaded = release.content_type === "upload";
+  const isPurchasableMusic = !["video", "live_performance"].includes(release.type);
   const isMultiTrackRelease = ["ep", "album", "mixtape", "dj_mix"].includes(release.type);
   const embedBadge = release.content_type === "embed" && embedProviderLabel
     ? `<p class="release-meta embed-label">${isPreSaveOnly ? "Pre-Save via" : "Embedded from"} ${escapeHtml(embedProviderLabel)}</p>`
@@ -559,11 +572,10 @@ function renderReleaseCard(release, mine = false) {
       <p class="release-meta">Downloads: ${release.download_count || 0} | Plays: ${release.listen_count || 0}</p>
       <div class="release-actions">
         <button class="chip" onclick="${actionStop} playRelease(${releaseId})">Play</button>
-        ${isUploaded ? `<button class="chip" onclick="${actionStop} downloadRelease(${releaseId})">Download</button>` : ""}
         ${isPreSaveOnly ? `<a class="chip" href="${escapeHtml(release.embed_url)}" target="_blank" rel="noopener noreferrer">Pre-Save</a>` : ""}
         <button type="button" class="chip heart-action${release.liked_by_user ? " is-liked" : ""}" aria-label="${release.liked_by_user ? "Unlike" : "Like"} this release" title="${release.liked_by_user ? "Unlike" : "Like"} this release" onclick="${actionStop} likeRelease(${releaseId})">${release.liked_by_user ? "♥" : "♡"}</button>
         <button class="chip" onclick="${actionStop} shareRelease(${releaseId})" aria-label="Share release" title="Share release">↗ Share</button>
-        <button type="button" class="chip buy-locked" onclick="${actionStop} showBuyComingSoon()" aria-label="Buy locked" title="Purchases coming soon">🔒 Buy</button>
+        ${isPurchasableMusic ? `<button type="button" class="chip buy-locked" onclick="${actionStop} showBuyComingSoon()" aria-label="Buy locked" title="Purchases coming soon">🔒 Buy</button>` : ""}
         <button class="chip" onclick="${actionStop} showComments(${releaseId})">Comments</button>
         ${mine ? `<button class="chip" onclick="${actionStop} deleteRelease(${releaseId})">Delete</button>` : ""}
       </div>
@@ -703,19 +715,37 @@ async function loadMyDashboard() {
 }
 
 async function loadLivePerformances() {
-  const data = await api("/live");
-  $("liveGrid").innerHTML = data.performances
+  const data = await api("/releases?type=video");
+  $("liveGrid").innerHTML = data.releases
     .map(
       (item) => `
       <article class="glass release-card">
+        ${item.artwork_path ? `<img src="${mediaUrl(item.artwork_path)}" alt="${escapeHtml(item.title)}" />` : ""}
         <h3>${escapeHtml(item.title)}</h3>
-        <p class="release-meta">${escapeHtml(item.stage_name)} â€¢ ${new Date(item.scheduled_at).toLocaleString()}</p>
+        <p class="release-meta">${escapeHtml(item.stage_name || "Unknown Artist")} • Plays: ${Number(item.view_count || 0)} • Hearts: ${Number(item.likes || 0)}</p>
         <p>${escapeHtml(item.description || "")}</p>
-        ${item.replay_path ? `<video class="player" controls src="${mediaUrl(item.replay_path)}"></video>` : ""}
+        ${item.media_video_path ? `<video class="player" controls src="${mediaUrl(item.media_video_path)}" onplay="trackView(${item.id})"></video>` : ""}
+        <div class="release-actions"><button class="chip" type="button" onclick="playRelease(${item.id})">Play</button><button class="chip" type="button" onclick="likeRelease(${item.id})">♡ Like</button></div>
       </article>
     `
     )
     .join("");
+}
+
+async function loadBeats() {
+  const container = $("beatGrid");
+  if (!container) return;
+  const data = await api("/beats");
+  container.innerHTML = (data.beats || []).map((beat) => `
+    <article class="glass release-card">
+      <img src="${mediaUrl(beat.artwork_path)}" alt="${escapeHtml(beat.title)}" />
+      <h3>${escapeHtml(beat.title)}</h3>
+      <p class="release-meta">${escapeHtml(beat.seller_name)} • ${escapeHtml(beat.genre)} • ${escapeHtml(beat.currency)} ${Number(beat.price).toFixed(2)}</p>
+      <p>${escapeHtml(beat.description || "")}</p>
+      <audio class="player" controls preload="metadata" src="${mediaUrl(beat.audio_path)}"></audio>
+      <div class="release-actions"><button class="chip buy-locked" type="button" onclick="showBuyComingSoon()">🔒 Buy</button></div>
+    </article>
+  `).join("") || '<p class="release-meta">No beats published yet.</p>';
 }
 
 async function loadAdminDashboard() {
@@ -739,6 +769,7 @@ async function initializeData() {
   await loadReleases();
   await loadTrendingReleases();
   await loadLivePerformances();
+  await loadBeats();
   toggleAuthUI();
   loadMarketplaceProducts();
   loadMarketplaceEvents();
@@ -875,6 +906,18 @@ function renderReleaseTrackList() {
   });
 }
 
+async function uploadBeat(form) {
+  const data = new FormData(form);
+  try {
+    await api("/beats", { method: "POST", body: data });
+    notify("Beat published");
+    form.reset();
+    await loadBeats();
+  } catch (error) {
+    notify(error.message);
+  }
+}
+
 function syncReleaseTrackTitlesIntoForm(form) {
   const existing = form.querySelectorAll('input[name="trackTitles"]').forEach((input) => input.remove());
   if (!state.releaseTrackQueue.length) return;
@@ -889,6 +932,16 @@ function syncReleaseTrackTitlesIntoForm(form) {
 }
 
 async function uploadRelease(form) {
+  const type = form.elements.type?.value;
+  const price = Number(form.elements.price?.value);
+  if (["ep", "album", "mixtape"].includes(type) && (price < 50 || price > 70)) {
+    notify(`${type.toUpperCase()} prices must be between R50 and R70.`);
+    return null;
+  }
+  if (!Number.isFinite(price) || price < 0) {
+    notify("A valid non-negative price is required.");
+    return null;
+  }
   syncReleaseTrackTitlesIntoForm(form);
   const data = new FormData(form);
   setUploadStatus("Uploading...", "Uploading your media...");
@@ -1389,10 +1442,9 @@ window.openReleaseDetail = async function openReleaseDetail(releaseId) {
               </div>
               <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
                 <button type="button" class="chip" onclick="event.stopPropagation(); playTrackFromRelease(${release.id}, ${index})">Play</button>
-                ${release.content_type === "upload" ? `<button type="button" class="chip" onclick="event.stopPropagation(); downloadTrackFromRelease(${release.id}, ${index})">Download</button>` : ""}
                 <button type="button" class="chip heart-action" aria-label="Like this track" title="Like this track" data-track-like="${release.id}-${index}" onclick="event.stopPropagation(); likeTrackFromRelease(${release.id}, ${index})">♡</button>
                 <button type="button" class="chip" onclick="event.stopPropagation(); shareTrackFromRelease(${release.id}, ${index})" aria-label="Share track" title="Share track">↗ Share</button>
-                <button type="button" class="chip buy-locked" onclick="event.stopPropagation(); showBuyComingSoon()" aria-label="Buy locked" title="Purchases coming soon">🔒 Buy</button>
+                ${!["video", "live_performance"].includes(release.type) ? `<button type="button" class="chip buy-locked" onclick="event.stopPropagation(); showBuyComingSoon()" aria-label="Buy locked" title="Purchases coming soon">🔒 Buy</button>` : ""}
                 <button type="button" class="chip" onclick="event.stopPropagation(); showTrackComments(${release.id}, ${index})">Comments</button>
               </div>
             </div>
@@ -2018,12 +2070,25 @@ function wireEvents() {
     }
   });
 
+  $("acceptTermsBtn")?.addEventListener("click", async () => {
+    try {
+      await acceptCurrentTerms();
+    } catch (error) {
+      notify(error.message);
+    }
+  });
+
   $("releaseForm").addEventListener("submit", async (event) => {
     event.preventDefault();
     const uploadResult = await uploadRelease(event.target);
     if (uploadResult) {
       await loadTrendingReleases();
     }
+  });
+
+  $("beatForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await uploadBeat(event.target);
   });
 
   const releaseAudioInput = $("releaseAudioInput");

@@ -3,6 +3,8 @@ const releaseModel = require("../models/releaseModel");
 const r2 = require("../utils/r2");
 const { folderForFile } = require("../utils/upload");
 const { detectAndExtractEmbed } = require("../utils/embed");
+const userModel = require("../models/userModel");
+const { TERMS_VERSION, MUSIC_TYPES, normalizePrice, validateMusicPrice } = require("../utils/creatorPolicy");
 
 const releaseTypes = ["single", "ep", "album", "mixtape", "dj_mix", "video", "live_performance"];
 
@@ -71,10 +73,25 @@ function normalizeTrackTitles(rawTrackTitles, totalFiles) {
 
 async function createRelease(req, res, next) {
   try {
-    const { title, description, type, genre, category, country, scheduledAt, replayAvailable, embedUrl, contentType } = req.body;
+    const { title, description, type, genre, category, country, scheduledAt, replayAvailable, embedUrl, contentType, price, currency, rightsConfirmed } = req.body;
 
     if (!releaseTypes.includes(type)) {
       throw new ApiError(422, "Invalid release type");
+    }
+
+    const currentUser = await userModel.findById(req.user.id);
+    if (!currentUser || currentUser.terms_version !== TERMS_VERSION || !currentUser.terms_accepted_at) {
+      throw new ApiError(403, "Please accept the current IndieWave Terms and Creator Policy before uploading.");
+    }
+    const normalizedPrice = normalizePrice(price === undefined || price === "" ? 0 : price);
+    const priceError = MUSIC_TYPES.includes(type) ? validateMusicPrice(type, price) : null;
+    if (priceError) throw new ApiError(422, priceError);
+    const needsRights = MUSIC_TYPES.includes(type);
+    if (needsRights && rightsConfirmed !== true && rightsConfirmed !== "true" && rightsConfirmed !== "on") {
+      throw new ApiError(422, "You must confirm that you own this content or have the necessary rights, license, or permission.");
+    }
+    if (MUSIC_TYPES.includes(type) && !req.files?.artwork?.[0]) {
+      throw new ApiError(422, "Artwork is required before this release can be uploaded.");
     }
 
     // Determine if this is an upload or embed
@@ -95,7 +112,7 @@ async function createRelease(req, res, next) {
         genre,
         category,
         country,
-        artworkPath: req.files?.artwork?.[0] ? await uploadFileToR2(req.files.artwork[0]) : null,
+        artworkPath: await uploadFileToR2(req.files.artwork[0]),
         mediaAudioPath: null,
         mediaVideoPath: null,
         scheduledAt: scheduledAt || null,
@@ -103,7 +120,10 @@ async function createRelease(req, res, next) {
         contentType: "embed",
         embedProvider: embedData.provider,
         embedUrl: embedData.normalizedUrl,
-        embedId: embedData.embedId
+        embedId: embedData.embedId,
+        price: normalizedPrice,
+        currency,
+        rightsConfirmed: needsRights
       });
 
       release.tracks = [];
@@ -114,6 +134,10 @@ async function createRelease(req, res, next) {
       const audioFiles = Array.isArray(files.audio) ? files.audio : [];
       const video = files.video?.[0];
       const artwork = files.artwork?.[0];
+
+      if (MUSIC_TYPES.includes(type) && !artwork) {
+        throw new ApiError(422, "Artwork is required before this release can be uploaded.");
+      }
 
       if (!audioFiles.length && !video) {
         throw new ApiError(422, "At least one media file (audio or video) is required");
@@ -141,7 +165,10 @@ async function createRelease(req, res, next) {
         contentType: "upload",
         embedProvider: null,
         embedUrl: null,
-        embedId: null
+        embedId: null,
+        price: normalizedPrice,
+        currency,
+        rightsConfirmed: needsRights
       });
 
       const rawTrackTitles = normalizeTrackTitles(req.body.trackTitles, audioFiles.length);
@@ -176,12 +203,20 @@ async function createRelease(req, res, next) {
 async function editRelease(req, res, next) {
   try {
     const releaseId = parsePositiveId(req.params.id, "Release id");
+    const existingRelease = await releaseModel.getReleaseById(releaseId);
+    if (!existingRelease) throw new ApiError(404, "Release not found");
     const { embedUrl, contentType } = req.body;
     const payload = {};
 
     ["title", "description", "type", "genre", "category", "country", "scheduled_at", "replay_available"].forEach((field) => {
       if (req.body[field] !== undefined) payload[field] = req.body[field];
     });
+    if (req.body.price !== undefined) {
+      const priceError = validateMusicPrice(req.body.type || existingRelease.type, req.body.price);
+      if (priceError) throw new ApiError(422, priceError);
+      payload.price = normalizePrice(req.body.price);
+    }
+    if (req.body.currency !== undefined) payload.currency = req.body.currency;
 
     // Handle embed URL update if provided
     if (embedUrl && contentType === "embed") {

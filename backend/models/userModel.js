@@ -9,14 +9,16 @@ async function createUser({
   genre,
   bio,
   role = "artist",
-  slug
+  slug,
+  termsVersion,
+  termsAcceptedAt
 }) {
   const query = `
-    INSERT INTO users (name, email, password_hash, stage_name, country, genre, bio, role, slug)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-    RETURNING id, name, email, stage_name, country, genre, bio, role, slug, created_at
+    INSERT INTO users (name, email, password_hash, stage_name, country, genre, bio, role, slug, terms_version, terms_accepted_at)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    RETURNING id, name, email, stage_name, country, genre, bio, role, slug, terms_version, terms_accepted_at, created_at
   `;
-  const values = [name, email, passwordHash, stageName, country, genre, bio, role, slug];
+  const values = [name, email, passwordHash, stageName, country, genre, bio, role, slug, termsVersion, termsAcceptedAt];
   const { rows } = await db.query(query, values);
   return rows[0];
 }
@@ -28,7 +30,7 @@ async function findByEmail(email) {
 
 async function findById(id) {
   const { rows } = await db.query(
-    `SELECT id, name, email, stage_name, country, genre, bio, role, slug, profile_image, created_at
+    `SELECT id, name, email, stage_name, country, genre, bio, role, slug, profile_image, terms_version, terms_accepted_at, created_at
      FROM users WHERE id = $1`,
     [id]
   );
@@ -75,11 +77,22 @@ async function getArtistStats(artistId) {
   return rows[0];
 }
 
+async function acceptTerms(id, termsVersion) {
+  const { rows } = await db.query(
+    `UPDATE users SET terms_version = $2, terms_accepted_at = NOW(), updated_at = NOW()
+     WHERE id = $1
+     RETURNING id, name, email, stage_name, country, genre, bio, role, slug, profile_image, terms_version, terms_accepted_at, created_at`,
+    [id, termsVersion]
+  );
+  return rows[0] || null;
+}
+
 module.exports = {
   createUser,
   findByEmail,
   findById,
   findBySlug,
   updateUser,
-  getArtistStats
+  getArtistStats,
+  acceptTerms
 };

@@ -20,6 +20,10 @@ function sanitizeFilenamePart(value) {
 }
 
 function resolveDownloadKey(release) {
+  if (["single", "ep", "album", "mixtape", "dj_mix", "video", "live_performance"].includes(release?.type)) {
+    throw new ApiError(403, "Downloads are not available. Listen on IndieWave or purchase when payments are enabled.");
+  }
+
   if (!release || release.content_type !== "upload") {
     throw new ApiError(422, "Only IndieWave uploaded releases can be downloaded");
   }

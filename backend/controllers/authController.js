@@ -4,10 +4,15 @@ const createSlug = require("../utils/slug");
 const { signToken } = require("../utils/jwt");
 const { hashPassword, comparePassword } = require("../utils/password");
 const userModel = require("../models/userModel");
+const { TERMS_VERSION } = require("../utils/creatorPolicy");
 
 async function register(req, res, next) {
   try {
-    const { name, email, password, stageName, country, genre, bio, role } = req.body;
+    const { name, email, password, stageName, country, genre, bio, role, acceptTerms } = req.body;
+
+    if (acceptTerms !== true && acceptTerms !== "true" && acceptTerms !== "on") {
+      throw new ApiError(422, "You must accept the IndieWave Terms and Creator Policy.");
+    }
 
     const existing = await userModel.findByEmail(email.toLowerCase());
     if (existing) {
@@ -29,7 +34,9 @@ async function register(req, res, next) {
       genre,
       bio,
       role: isAllowedAdmin ? "admin" : role || "artist",
-      slug
+      slug,
+      termsVersion: TERMS_VERSION,
+      termsAcceptedAt: new Date()
     });
 
     const token = signToken({ id: user.id, email: user.email, role: user.role });
@@ -70,8 +77,18 @@ async function me(req, res, next) {
   }
 }
 
+async function acceptTerms(req, res, next) {
+  try {
+    const user = await userModel.acceptTerms(req.user.id, TERMS_VERSION);
+    res.json({ success: true, user });
+  } catch (error) {
+    next(error);
+  }
+}
+
 module.exports = {
   register,
   login,
-  me
+  me,
+  acceptTerms
 };
