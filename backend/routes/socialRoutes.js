@@ -5,6 +5,7 @@ const socialController = require("../controllers/socialController");
 
 const router = express.Router();
 
+router.get("/library", requireAuth, socialController.getLibrary);
 router.post("/artists/:artistId/follow", requireAuth, socialController.followArtist);
 router.post("/releases/:releaseId/like", requireAuth, socialController.likeRelease);
 router.post("/releases/:releaseId/comments", requireAuth, requireFields(["content"]), socialController.addComment);

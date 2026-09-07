@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const { releaseMovementSql } = require("../utils/analytics");
 
 async function createRelease({
   artistId,
@@ -150,9 +151,16 @@ async function listReleases({
   viewerId = null
 }) {
   let orderBy = "r.created_at DESC";
-  if (sort === "trending") orderBy = "(r.download_count + r.view_count + r.listen_count + r.video_view_count) DESC, r.created_at DESC";
+  if (sort === "trending") orderBy = "movement_score DESC, r.created_at DESC";
   if (sort === "most_downloaded") orderBy = "r.download_count DESC, r.created_at DESC";
   if (sort === "most_viewed") orderBy = "(r.view_count + r.video_view_count) DESC, r.created_at DESC";
+  const movementScore = releaseMovementSql({
+    plays: "activity.plays_7d",
+    views: "activity.views_7d",
+    downloads: "activity.downloads_7d",
+    likes: "activity.likes_7d",
+    freshnessScore: "CASE WHEN COALESCE(activity.plays_7d, 0) + COALESCE(activity.views_7d, 0) + COALESCE(activity.downloads_7d, 0) + COALESCE(activity.likes_7d, 0) > 0 THEN GREATEST(0, 1 - EXTRACT(EPOCH FROM (NOW() - r.created_at)) / 86400 / 30) ELSE 0 END"
+  });
 
   const values = [];
   const where = ["r.is_deleted = false"];
@@ -196,10 +204,25 @@ async function listReleases({
   values.push(limit, offset);
   const query = `
     SELECT r.*, u.stage_name, u.slug AS artist_slug, u.profile_image,
+      COALESCE(activity.plays_7d, 0) AS plays_7d,
+      COALESCE(activity.views_7d, 0) AS views_7d,
+      COALESCE(activity.downloads_7d, 0) AS downloads_7d,
+      COALESCE(activity.likes_7d, 0) AS likes_7d,
+      GREATEST(0, 1 - EXTRACT(EPOCH FROM (NOW() - r.created_at)) / 86400 / 30) AS freshness_score,
+      ${movementScore} AS movement_score,
       (SELECT COUNT(*) FROM likes l WHERE l.release_id = r.id) AS likes,
       (SELECT COUNT(*) FROM comments c WHERE c.release_id = r.id) AS comments${viewerSelect}
     FROM releases r
     JOIN users u ON u.id = r.artist_id
+    LEFT JOIN (
+      SELECT release_id,
+        COUNT(*) FILTER (WHERE event_type = 'play' AND occurred_at >= NOW() - INTERVAL '7 days') AS plays_7d,
+        COUNT(*) FILTER (WHERE event_type = 'view' AND occurred_at >= NOW() - INTERVAL '7 days') AS views_7d,
+        COUNT(*) FILTER (WHERE event_type = 'download' AND occurred_at >= NOW() - INTERVAL '7 days') AS downloads_7d,
+        COUNT(*) FILTER (WHERE event_type = 'like' AND occurred_at >= NOW() - INTERVAL '7 days') AS likes_7d
+      FROM activity_events
+      GROUP BY release_id
+    ) activity ON activity.release_id = r.id
     WHERE ${where.join(" AND ")}
     ORDER BY ${orderBy}
     LIMIT $${values.length - 1} OFFSET $${values.length}

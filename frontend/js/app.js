@@ -17,6 +17,8 @@ const state = {
   appView: "home",
   genreBucket: "all",
   formatType: "all",
+  libraryFormat: "all",
+  library: { releases: [], artists: [] },
   commentsReleaseId: null,
   activeConversationId: null,
   activeConversationUser: null,
@@ -400,6 +402,7 @@ function setAppView(view) {
   if (view === "home") window.scrollTo({ top: 0, behavior: "auto" });
   else if (view === "dashboard") $("dashboard")?.scrollIntoView({ behavior: "smooth", block: "start" });
   else $(visibleIds[0])?.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (view === "library") loadLibrary();
 }
 
 function showDashboardView() {
@@ -557,6 +560,9 @@ function renderReleaseCard(release, mine = false) {
   const embedBadge = release.content_type === "embed" && embedProviderLabel
     ? `<p class="release-meta embed-label">${isPreSaveOnly ? "Pre-Save via" : "Embedded from"} ${escapeHtml(embedProviderLabel)}</p>`
     : "";
+  const trackCount = Number(release.track_count || release.tracks?.length || 0);
+  const formatMeta = `${releaseTypeLabel(release.type)}${trackCount > 1 ? ` · ${trackCount} tracks` : ""}`;
+  const releaseDate = release.created_at ? new Date(release.created_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "";
 
   const actionStop = "event.stopPropagation();";
   const cardOnClick = isMultiTrackRelease ? `onclick="openReleaseDetail(${releaseId})"` : "";
@@ -566,21 +572,53 @@ function renderReleaseCard(release, mine = false) {
       ${artwork}
       <h3>${escapeHtml(release.title)}</h3>
       ${embedBadge}
-      <p class="release-meta">${escapeHtml(release.stage_name || "Unknown Artist")} â€¢ ${escapeHtml(releaseTypeLabel(release.type))}</p>
-      <p class="release-meta">${escapeHtml(release.genre)} â€¢ ${escapeHtml(release.country)}</p>
-      <p class="release-meta">Likes: ${release.likes || 0} | Comments: ${release.comments || 0}</p>
-      <p class="release-meta">Downloads: ${release.download_count || 0} | Plays: ${release.listen_count || 0}</p>
+      <p class="release-meta release-artist">${escapeHtml(release.stage_name || "Unknown Artist")}</p>
+      <p class="release-meta">${escapeHtml(formatMeta)}${releaseDate ? ` · ${escapeHtml(releaseDate)}` : ""}</p>
+      <p class="release-meta">${escapeHtml(release.genre || "")} · ${escapeHtml(release.country || "")}</p>
       <div class="release-actions">
         <button class="chip" onclick="${actionStop} playRelease(${releaseId})">Play</button>
         ${isPreSaveOnly ? `<a class="chip" href="${escapeHtml(release.embed_url)}" target="_blank" rel="noopener noreferrer">Pre-Save</a>` : ""}
-        <button type="button" class="chip heart-action${release.liked_by_user ? " is-liked" : ""}" aria-label="${release.liked_by_user ? "Unlike" : "Like"} this release" title="${release.liked_by_user ? "Unlike" : "Like"} this release" onclick="${actionStop} likeRelease(${releaseId})">${release.liked_by_user ? "♥" : "♡"}</button>
-        <button class="chip" onclick="${actionStop} shareRelease(${releaseId})" aria-label="Share release" title="Share release">↗ Share</button>
+        <button type="button" class="chip heart-action${release.liked_by_user ? " is-liked" : ""}" aria-label="${release.liked_by_user ? "Unlike" : "Like"} this release" title="${release.liked_by_user ? "Unlike" : "Like"} this release" onclick="${actionStop} likeRelease(${releaseId})">${release.liked_by_user ? "Unlike" : "Like"}</button>
+        <button class="chip" onclick="${actionStop} shareRelease(${releaseId})" aria-label="Share release" title="Share release">Share</button>
         ${isPurchasableMusic ? `<button type="button" class="chip buy-locked" onclick="${actionStop} showBuyComingSoon()" aria-label="Buy locked" title="Purchases coming soon">🔒 Buy</button>` : ""}
         <button class="chip" onclick="${actionStop} showComments(${releaseId})">Comments</button>
         ${mine ? `<button class="chip" onclick="${actionStop} deleteRelease(${releaseId})">Delete</button>` : ""}
       </div>
     </article>
   `;
+}
+
+function renderLibraryEmpty(message, actionLabel = "Explore Music") {
+  return `<div class="library-empty-state"><h3>${escapeHtml(message)}</h3><a class="btn btn-primary" href="#discover" data-app-view="music">${escapeHtml(actionLabel)}</a></div>`;
+}
+
+function renderLibrary() {
+  const releases = filterLibraryReleases(state.library.releases, state.libraryFormat);
+  const releaseGrid = $("libraryReleaseGrid");
+  const artistGrid = $("libraryArtistGrid");
+  if (releaseGrid) releaseGrid.innerHTML = releases.length
+    ? releases.map((release) => renderReleaseCard(release)).join("")
+    : renderLibraryEmpty(state.library.releases.length ? `No ${libraryFormatLabel(state.libraryFormat).toLowerCase()} saved yet.` : "No saved music yet.");
+  if (artistGrid) artistGrid.innerHTML = state.library.artists.length
+    ? state.library.artists.map(renderArtistCard).join("")
+    : renderLibraryEmpty("No followed artists yet.", "Explore Artists");
+}
+
+async function loadLibrary() {
+  const releaseGrid = $("libraryReleaseGrid");
+  if (!releaseGrid) return;
+  if (!state.token) {
+    releaseGrid.innerHTML = renderLibraryEmpty("Log in to view your saved music.", "Log In");
+    $("libraryArtistGrid").innerHTML = renderLibraryEmpty("Log in to view followed artists.", "Log In");
+    return;
+  }
+  try {
+    const data = await api("/social/library");
+    state.library = { releases: data.releases || [], artists: data.artists || [] };
+    renderLibrary();
+  } catch (error) {
+    releaseGrid.innerHTML = `<p class="release-meta">${escapeHtml(error.message || "Library unavailable")}</p>`;
+  }
 }
 
 function renderSearchResults(releases, query) {
@@ -637,15 +675,23 @@ async function loadReleases(filters = {}) {
       ? '<div class="empty-state"><p class="empty-state-title">No music found in this genre yet.</p><p class="empty-state-text">Try a different genre or format, or explore All.</p></div>'
       : '<div class="empty-state"><p class="empty-state-title">No releases yet.</p><p class="empty-state-text">Upload your music and start building your audience on IndieWave.</p><a href="#dashboard" class="btn btn-primary empty-state-btn">Upload Your Music</a></div>');
 
-  const artistsMap = new Map();
-  filtered.forEach((release) => {
-    if (!artistsMap.has(release.artist_id)) artistsMap.set(release.artist_id, release);
-  });
-
-  $("artistGrid").innerHTML = [...artistsMap.values()].map((artistRelease) => renderArtistCard(artistRelease)).join("");
+  await loadRisingArtists(mergedFilters);
 
   renderCategoryLists(filtered);
   renderTaxonomy(filtered);
+}
+
+async function loadRisingArtists(filters = {}) {
+  const container = $("artistGrid");
+  if (!container) return;
+
+  const query = new URLSearchParams({ limit: "20", ...filters }).toString();
+  try {
+    const data = await api(`/artists/rising?${query}`);
+    container.innerHTML = (data.artists || []).map(renderArtistCard).join("") || '<p class="release-meta">No rising artists yet.</p>';
+  } catch (error) {
+    renderLoadError("artistGrid", () => loadRisingArtists(filters));
+  }
 }
 
 async function loadTrendingReleases(filters = {}) {
@@ -1660,6 +1706,7 @@ window.likeRelease = async function likeRelease(releaseId) {
     notify(result.liked ? "Release liked" : "Like removed");
     await loadReleases();
     await loadTrendingReleases();
+    await loadLibrary();
   } finally {
     state.pendingLikes.delete(key);
   }
@@ -1730,6 +1777,7 @@ window.followArtist = async function followArtist(artistId) {
   }
   const result = await api(`/social/artists/${artistId}/follow`, { method: "POST" });
   notify(result.followed ? "Artist followed" : "Unfollowed");
+  await loadLibrary();
 };
 
 window.showComments = async function showComments(releaseId) {
@@ -2153,6 +2201,18 @@ function wireEvents() {
       button.classList.add("active");
       state.sort = button.dataset.sort;
       await loadReleases();
+    });
+  });
+
+  document.querySelectorAll(".library-format-chip").forEach((button) => {
+    button.addEventListener("click", () => {
+      document.querySelectorAll(".library-format-chip").forEach((item) => {
+        const active = item === button;
+        item.classList.toggle("active", active);
+        item.setAttribute("aria-selected", String(active));
+      });
+      state.libraryFormat = button.dataset.libraryFormat;
+      renderLibrary();
     });
   });
 

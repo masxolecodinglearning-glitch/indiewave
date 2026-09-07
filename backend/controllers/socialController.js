@@ -1,6 +1,7 @@
 const ApiError = require("../utils/apiError");
 const socialModel = require("../models/socialModel");
 const releaseModel = require("../models/releaseModel");
+const activityEventModel = require("../models/activityEventModel");
 const notificationModel = require("../models/notificationModel");
 
 function parsePositiveId(value, label) {
@@ -11,12 +12,28 @@ function parsePositiveId(value, label) {
   return id;
 }
 
+async function getLibrary(req, res, next) {
+  try {
+    const releases = await socialModel.listLikedReleases(req.user.id, req.query.type || null);
+    const artists = await socialModel.listFollowedArtists(req.user.id);
+    res.json({ success: true, releases, artists });
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function followArtist(req, res, next) {
   try {
     const artistId = parsePositiveId(req.params.artistId, "Artist id");
     const result = await socialModel.toggleFollow(req.user.id, artistId);
 
     if (result.followed) {
+      await activityEventModel.recordEvent({
+        eventType: "follow",
+        artistId,
+        userId: req.user.id,
+        occurredAt: new Date()
+      });
       await notificationModel.createNotification({
         userId: artistId,
         type: "follow",
@@ -39,13 +56,22 @@ async function likeRelease(req, res, next) {
 
     const result = await socialModel.toggleLike(req.user.id, releaseId);
 
-    if (result.liked && release.artist_id !== req.user.id) {
-      await notificationModel.createNotification({
-        userId: release.artist_id,
-        type: "like",
-        message: `Your release \"${release.title}\" got a new like.`,
-        relatedId: releaseId
+    if (result.liked) {
+      await activityEventModel.recordEvent({
+        eventType: "like",
+        releaseId,
+        userId: req.user.id,
+        artistId: release.artist_id,
+        occurredAt: new Date()
       });
+      if (release.artist_id !== req.user.id) {
+        await notificationModel.createNotification({
+          userId: release.artist_id,
+          type: "like",
+          message: `Your release \"${release.title}\" got a new like.`,
+          relatedId: releaseId
+        });
+      }
     }
 
     res.json({ success: true, ...result });
@@ -97,13 +123,23 @@ async function likeTrack(req, res, next) {
     if (!track) throw new ApiError(404, "Track not found");
 
     const result = await socialModel.toggleTrackLike(req.user.id, trackId);
-    if (result.liked && track.artist_id !== req.user.id) {
-      await notificationModel.createNotification({
-        userId: track.artist_id,
-        type: "like",
-        message: `Your track \"${track.title}\" got a new like.`,
-        relatedId: trackId
+    if (result.liked) {
+      await activityEventModel.recordEvent({
+        eventType: "like",
+        trackId,
+        releaseId: track.release_id,
+        userId: req.user.id,
+        artistId: track.artist_id,
+        occurredAt: new Date()
       });
+      if (track.artist_id !== req.user.id) {
+        await notificationModel.createNotification({
+          userId: track.artist_id,
+          type: "like",
+          message: `Your track \"${track.title}\" got a new like.`,
+          relatedId: trackId
+        });
+      }
     }
     res.json({ success: true, ...result });
   } catch (error) {
@@ -145,6 +181,7 @@ async function listTrackComments(req, res, next) {
 }
 
 module.exports = {
+  getLibrary,
   followArtist,
   likeRelease,
   addComment,

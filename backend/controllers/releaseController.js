@@ -1,5 +1,7 @@
 const ApiError = require("../utils/apiError");
 const releaseModel = require("../models/releaseModel");
+const analyticsModel = require("../models/analyticsModel");
+const { freshness, growth, releaseMovement } = require("../utils/analytics");
 const r2 = require("../utils/r2");
 const { folderForFile } = require("../utils/upload");
 const { detectAndExtractEmbed } = require("../utils/embed");
@@ -263,6 +265,35 @@ async function getRelease(req, res, next) {
 
     const tracks = await releaseModel.listTracksByRelease(releaseId);
     release.tracks = tracks.length ? tracks : (release.media_audio_path ? [buildFallbackTrack(release)] : []);
+    const historical = await analyticsModel.getReleaseAnalytics(releaseId);
+    const plays7d = Number(historical.plays_7d || 0);
+    const views7d = Number(historical.views_7d || 0);
+    const downloads7d = Number(historical.downloads_7d || 0);
+    const likes7d = Number(historical.likes_7d || 0);
+    release.analytics = {
+      plays_7d: plays7d,
+      views_7d: views7d,
+      downloads_7d: downloads7d,
+      likes_7d: likes7d,
+      plays_previous_7d: Number(historical.plays_previous_7d || 0),
+      views_previous_7d: Number(historical.views_previous_7d || 0),
+      downloads_previous_7d: Number(historical.downloads_previous_7d || 0),
+      likes_previous_7d: Number(historical.likes_previous_7d || 0),
+      growth: {
+        plays: growth(plays7d, historical.plays_previous_7d),
+        views: growth(views7d, historical.views_previous_7d),
+        downloads: growth(downloads7d, historical.downloads_previous_7d),
+        likes: growth(likes7d, historical.likes_previous_7d)
+      },
+      freshness: freshness(release.created_at),
+      movement: releaseMovement({
+        plays: plays7d,
+        views: views7d,
+        downloads: downloads7d,
+        likes: likes7d,
+        freshnessScore: plays7d + views7d + downloads7d + likes7d > 0 ? freshness(release.created_at) : 0
+      })
+    };
 
     res.json({ success: true, release });
   } catch (error) {

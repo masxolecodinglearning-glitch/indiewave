@@ -1,6 +1,7 @@
 const ApiError = require("../utils/apiError");
 const db = require("../config/db");
 const releaseModel = require("../models/releaseModel");
+const activityEventModel = require("../models/activityEventModel");
 const r2 = require("../utils/r2");
 
 function parseReleaseId(value) {
@@ -57,6 +58,13 @@ async function trackDownload(req, res, next) {
     resolveDownloadKey(release);
 
     await releaseModel.incrementCounter(releaseId, "download_count");
+    await activityEventModel.recordEvent({
+      eventType: "download",
+      releaseId,
+      userId: req.user ? req.user.id : null,
+      artistId: release.artist_id,
+      occurredAt: new Date()
+    });
     res.json({
       success: true,
       message: "Download ready",
@@ -100,6 +108,13 @@ async function trackListen(req, res, next) {
     if (!release) throw new ApiError(404, "Release not found");
 
     await releaseModel.incrementCounter(releaseId, "listen_count");
+    await activityEventModel.recordEvent({
+      eventType: "play",
+      releaseId,
+      userId: req.user ? req.user.id : null,
+      artistId: release.artist_id,
+      occurredAt: new Date()
+    });
     res.json({ success: true, message: "Listen tracked" });
   } catch (error) {
     next(error);
@@ -121,6 +136,7 @@ async function trackListenForTrack(req, res, next) {
     if (!track) throw new ApiError(404, "Track not found");
 
     const client = await db.getClient();
+    let recorded = false;
     try {
       await client.query("BEGIN");
       const inserted = await client.query(
@@ -131,18 +147,31 @@ async function trackListenForTrack(req, res, next) {
         [trackId, req.user?.id || null, sessionId]
       );
       if (inserted.rows.length) {
+        recorded = true;
         await client.query(
           "UPDATE release_tracks SET listen_count = listen_count + 1 WHERE id = $1",
           [trackId]
         );
       }
       await client.query("COMMIT");
-      res.json({ success: true, recorded: inserted.rows.length > 0, message: inserted.rows.length ? "Track listen tracked" : "Track listen already tracked" });
+      res.json({ success: true, recorded, message: recorded ? "Track listen tracked" : "Track listen already tracked" });
     } catch (error) {
       await client.query("ROLLBACK");
       throw error;
     } finally {
       client.release();
+    }
+
+    if (recorded) {
+      await activityEventModel.recordEvent({
+        eventType: "play",
+        releaseId: requestedReleaseId ? Number(requestedReleaseId) : track.release_id,
+        trackId,
+        userId: req.user ? req.user.id : null,
+        sessionId,
+        artistId: track.artist_id,
+        occurredAt: new Date()
+      });
     }
   } catch (error) {
     next(error);
@@ -157,6 +186,13 @@ async function trackView(req, res, next) {
 
     const metric = release.type === "video" || release.media_video_path ? "video_view_count" : "view_count";
     await releaseModel.incrementCounter(releaseId, metric);
+    await activityEventModel.recordEvent({
+      eventType: "view",
+      releaseId,
+      userId: req.user ? req.user.id : null,
+      artistId: release.artist_id,
+      occurredAt: new Date()
+    });
     res.json({ success: true, message: "View tracked" });
   } catch (error) {
     next(error);

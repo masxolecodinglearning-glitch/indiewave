@@ -33,6 +33,40 @@ async function checkFollows(followerId, artistId) {
   return rows.length > 0;
 }
 
+async function listLikedReleases(userId, type = null) {
+  const values = [userId];
+  const typeFilter = type ? "AND r.type = $2" : "";
+  if (type) values.push(type);
+  const { rows } = await db.query(
+    `SELECT r.*, u.stage_name, u.slug AS artist_slug, u.profile_image,
+      true AS liked_by_user,
+      (SELECT COUNT(*) FROM likes l2 WHERE l2.release_id = r.id) AS likes,
+      (SELECT COUNT(*) FROM comments c WHERE c.release_id = r.id) AS comments,
+      (SELECT COUNT(*) FROM release_tracks t WHERE t.release_id = r.id) AS track_count
+     FROM likes l
+     JOIN releases r ON r.id = l.release_id AND r.is_deleted = false
+     JOIN users u ON u.id = r.artist_id
+     WHERE l.user_id = $1 ${typeFilter}
+     ORDER BY l.created_at DESC`,
+    values
+  );
+  return rows;
+}
+
+async function listFollowedArtists(userId) {
+  const { rows } = await db.query(
+    `SELECT u.id AS artist_id, u.name, u.stage_name, u.country, u.genre, u.slug AS artist_slug, u.profile_image,
+      true AS is_following,
+      f.created_at AS followed_at
+     FROM followers f
+     JOIN users u ON u.id = f.artist_id
+     WHERE f.follower_id = $1 AND u.role = 'artist'
+     ORDER BY f.created_at DESC`,
+    [userId]
+  );
+  return rows;
+}
+
 async function toggleLike(userId, releaseId) {
   const existing = await db.query("SELECT id FROM likes WHERE user_id = $1 AND release_id = $2", [
     userId,
@@ -106,6 +140,8 @@ async function getTrackComments(trackId) {
 module.exports = {
   toggleFollow,
   checkFollows,
+  listLikedReleases,
+  listFollowedArtists,
   toggleLike,
   addComment,
   getComments,

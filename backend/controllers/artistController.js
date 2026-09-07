@@ -17,6 +17,21 @@ async function getArtistProfile(req, res, next) {
   }
 }
 
+async function listRisingArtists(req, res, next) {
+  try {
+    const artists = await userModel.listRisingArtists({
+      viewerId: req.user?.id,
+      genre: req.query.genre,
+      country: req.query.country,
+      limit: Number(req.query.limit || 20),
+      offset: Number(req.query.offset || 0)
+    });
+    res.json({ success: true, artists });
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function updateMyProfile(req, res, next) {
   try {
     const payload = {};
@@ -57,6 +72,7 @@ async function uploadProfileImage(req, res, next) {
 
 module.exports = {
   getArtistProfile,
+  listRisingArtists,
   updateMyProfile,
   uploadProfileImage
 };
