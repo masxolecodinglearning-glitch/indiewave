@@ -68,20 +68,16 @@
     <main id="home">
       <section id="welcome" class="hero section glass">
         <div class="hero-copy">
-          <p class="eyebrow">THE HOME OF INDEPENDENT MUSIC</p>
-          <h1>Discover African Independent Sounds Shaping Tomorrow</h1>
-          <p class="hero-text">
-            Discover independent artists, new sounds and music from the next generation.
-            IndieWave helps artists release music, build audiences and grow their music business.
-          </p>
+          <p class="eyebrow">IndieWave</p>
+          <h1>African independent music.</h1>
+          <p class="hero-text">Listen. Discover. Support artists.</p>
 
           <div class="hero-cta-row">
-            <a class="btn btn-primary" href="#discover">Explore Music</a>
-            <a class="btn btn-outline" href="#artists">Discover Artists</a>
-            <a class="btn btn-outline" href="#dashboard">Upload Music</a>
+            <a class="btn btn-primary" href="#discover">Listen Now</a>
+            <a class="btn btn-outline" href="#dashboard">Are You An Artist? Upload Your Music</a>
           </div>
 
-          <form id="searchForm" class="searchbar">
+          <form id="searchForm" class="searchbar searchbar-compact">
             <input id="searchInput" type="search" placeholder="Search artists, songs, releases, genres..." aria-label="Search IndieWave releases" />
             <button class="btn btn-primary" type="submit">Search</button>
           </form>
@@ -189,8 +185,8 @@
       <section id="discover" class="section">
         <div class="section-title-row">
           <div>
-            <p class="section-kicker">Music Discovery</p>
-            <h2>Trending Music</h2>
+            <p class="section-kicker">🔥 What&apos;s Moving</p>
+            <h2>What&apos;s moving</h2>
           </div>
           <div class="chip-group">
             <button data-sort="trending" class="chip active trending-chip">Trending</button>
@@ -204,20 +200,21 @@
       <section id="newReleases" class="section">
         <div class="section-title-row">
           <div>
-            <p class="section-kicker">Fresh Drops</p>
-            <h2>New Releases</h2>
+            <p class="section-kicker">🚀 Rising Artists</p>
+            <h2>Rising artists</h2>
+          </div>
+        </div>
+        <div id="artistGrid" class="artist-grid"></div>
+
+        <div class="section-title-row section-title-row-tight">
+          <div>
+            <p class="section-kicker">🆕 Fresh Drops</p>
+            <h2>Fresh drops</h2>
           </div>
           <button data-sort="recent" class="chip active sort-chip">Recent</button>
         </div>
         <div id="releaseGrid" class="release-grid release-carousel"></div>
         <span id="artists"></span>
-        <div class="section-title-row">
-          <div>
-            <p class="section-kicker">Artist Discovery</p>
-            <h2>Featured Artists</h2>
-          </div>
-        </div>
-        <div id="artistGrid" class="artist-grid"></div>
       </section>
 
       <section id="library" class="section secondary-view-section">
@@ -310,11 +307,23 @@
       <section id="countries" class="section secondary-view-section">
         <div class="section-title-row">
           <div>
-            <p class="section-kicker">Regional Discovery</p>
-            <h2>Country Pages</h2>
+            <p class="section-kicker">🌍 Explore Africa</p>
+            <h2>Explore Africa</h2>
           </div>
         </div>
         <div id="countryChips" class="chips-wrap"></div>
+      </section>
+
+      <section class="section home-cta-band glass">
+        <div class="section-title-row">
+          <div>
+            <p class="section-kicker">Are You An Artist?</p>
+            <h2>Upload your music. Build your audience. Sell your music.</h2>
+          </div>
+        </div>
+        <div class="home-cta-band-actions">
+          <a class="btn btn-primary" href="#dashboard">Upload Your Music</a>
+        </div>
       </section>
 
       <section id="businessHub" class="section secondary-view-section">

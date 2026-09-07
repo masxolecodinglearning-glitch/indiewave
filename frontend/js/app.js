@@ -365,7 +365,7 @@ function showHomeView() {
 
 function setAppView(view) {
   const views = {
-    home: ["welcome", "genres", "discover", "newReleases", "forArtists"],
+    home: ["welcome", "discover", "newReleases", "countries"],
     search: ["welcome"],
     music: ["discover", "newReleases", "musicTypes"],
     library: ["library"],
