@@ -554,11 +554,10 @@ function renderReleaseCard(release, mine = false) {
     distrokid: "DistroKid"
   }[release.embed_provider];
   const isPreSaveOnly = release.embed_provider === "ditto" || release.embed_provider === "distrokid";
-  const isUploaded = release.content_type === "upload";
   const isPurchasableMusic = !["video", "live_performance"].includes(release.type);
   const isMultiTrackRelease = ["ep", "album", "mixtape", "dj_mix"].includes(release.type);
   const embedBadge = release.content_type === "embed" && embedProviderLabel
-    ? `<p class="release-meta embed-label">${isPreSaveOnly ? "Pre-Save via" : "Embedded from"} ${escapeHtml(embedProviderLabel)}</p>`
+    ? `<span class="release-chip-tag">${isPreSaveOnly ? "Pre-Save" : escapeHtml(embedProviderLabel)}</span>`
     : "";
   const trackCount = Number(release.track_count || release.tracks?.length || 0);
   const formatMeta = `${releaseTypeLabel(release.type)}${trackCount > 1 ? ` · ${trackCount} tracks` : ""}`;
@@ -568,21 +567,27 @@ function renderReleaseCard(release, mine = false) {
   const cardOnClick = isMultiTrackRelease ? `onclick="openReleaseDetail(${releaseId})"` : "";
 
   return `
-    <article class="glass release-card" ${cardOnClick} style="${isMultiTrackRelease ? "cursor:pointer;" : ""}">
-      ${artwork}
-      <h3>${escapeHtml(release.title)}</h3>
-      ${embedBadge}
-      <p class="release-meta release-artist">${escapeHtml(release.stage_name || "Unknown Artist")}</p>
-      <p class="release-meta">${escapeHtml(formatMeta)}${releaseDate ? ` · ${escapeHtml(releaseDate)}` : ""}</p>
-      <p class="release-meta">${escapeHtml(release.genre || "")} · ${escapeHtml(release.country || "")}</p>
-      <div class="release-actions">
-        <button class="chip" onclick="${actionStop} playRelease(${releaseId})">Play</button>
+    <article class="glass release-card compact-release-card" ${cardOnClick} style="${isMultiTrackRelease ? "cursor:pointer;" : ""}">
+      <div class="compact-release-main">
+        <div class="compact-release-artwork">${artwork}</div>
+        <div class="compact-release-copy">
+          <div class="compact-release-title-row">
+            <h3>${escapeHtml(release.title)}</h3>
+            ${embedBadge}
+          </div>
+          <p class="release-meta release-artist">${escapeHtml(release.stage_name || "Unknown Artist")}</p>
+          <p class="release-meta">${escapeHtml(formatMeta)}${releaseDate ? ` · ${escapeHtml(releaseDate)}` : ""}</p>
+          <p class="release-meta compact-meta">${escapeHtml(release.genre || "")} · ${escapeHtml(release.country || "")}</p>
+        </div>
+      </div>
+      <div class="release-actions compact-actions">
+        <button class="chip" type="button" onclick="${actionStop} playRelease(${releaseId})">Play</button>
         ${isPreSaveOnly ? `<a class="chip" href="${escapeHtml(release.embed_url)}" target="_blank" rel="noopener noreferrer">Pre-Save</a>` : ""}
-        <button type="button" class="chip heart-action${release.liked_by_user ? " is-liked" : ""}" aria-label="${release.liked_by_user ? "Unlike" : "Like"} this release" title="${release.liked_by_user ? "Unlike" : "Like"} this release" onclick="${actionStop} likeRelease(${releaseId})">${release.liked_by_user ? "Unlike" : "Like"}</button>
-        <button class="chip" onclick="${actionStop} shareRelease(${releaseId})" aria-label="Share release" title="Share release">Share</button>
-        ${isPurchasableMusic ? `<button type="button" class="chip buy-locked" onclick="${actionStop} showBuyComingSoon()" aria-label="Buy locked" title="Purchases coming soon">🔒 Buy</button>` : ""}
-        <button class="chip" onclick="${actionStop} showComments(${releaseId})">Comments</button>
-        ${mine ? `<button class="chip" onclick="${actionStop} deleteRelease(${releaseId})">Delete</button>` : ""}
+        <button type="button" class="chip heart-action${release.liked_by_user ? " is-liked" : ""}" aria-label="${release.liked_by_user ? "Unlike" : "Like"} this release" title="${release.liked_by_user ? "Unlike" : "Like"} this release" onclick="${actionStop} likeRelease(${releaseId})">${release.liked_by_user ? "Liked" : "Like"}</button>
+        <button class="chip" type="button" onclick="${actionStop} shareRelease(${releaseId})" aria-label="Share release" title="Share release">Share</button>
+        ${isPurchasableMusic ? `<button type="button" class="chip buy-locked" onclick="${actionStop} showBuyComingSoon()" aria-label="Buy locked" title="Purchases coming soon">Buy</button>` : ""}
+        <button class="chip" type="button" onclick="${actionStop} showComments(${releaseId})">Comments</button>
+        ${mine ? `<button class="chip" type="button" onclick="${actionStop} deleteRelease(${releaseId})">Delete</button>` : ""}
       </div>
     </article>
   `;
@@ -1661,6 +1666,12 @@ window.shareRelease = async function shareRelease(releaseId) {
     else throw new Error("native share unavailable");
   } catch (error) {
     if (error.name === "AbortError") return;
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(`${shareData.title} — ${shareData.url}`)}`;
+    const shouldUseWhatsapp = window.confirm("Share this IndieWave release with WhatsApp?");
+    if (shouldUseWhatsapp) {
+      window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
     try {
       await navigator.clipboard.writeText(url.toString());
       notify("Release link copied");
@@ -2944,6 +2955,35 @@ window.mktDeleteEvent = async function mktDeleteEvent(id) {
 };
 
 async function bootstrap() {
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./sw.js").catch(() => {});
+    });
+  }
+
+  let deferredInstallPrompt = null;
+  const installAppBtn = document.getElementById("installAppBtn");
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    deferredInstallPrompt = event;
+    if (installAppBtn) {
+      installAppBtn.classList.remove("hidden");
+    }
+  });
+
+  if (installAppBtn) {
+    installAppBtn.addEventListener("click", async () => {
+      if (!deferredInstallPrompt) {
+        notify("Install is not available in this browser yet. On iPhone or iPad, use Share > Add to Home Screen.");
+        return;
+      }
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      installAppBtn.classList.add("hidden");
+    });
+  }
+
   loadAuth();
   wireEvents();
 
