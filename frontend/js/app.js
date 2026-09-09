@@ -367,9 +367,10 @@ function showHomeView() {
 
 function setAppView(view) {
   const views = {
-    home: ["welcome", "discover", "newReleases", "countries"],
+    home: ["welcome", "discover", "newReleases", "countries", "artistCta"],
     search: ["welcome"],
     music: ["discover", "newReleases", "musicTypes"],
+    artistProfile: ["artistProfile"],
     library: ["library"],
     artists: ["artists", "newReleases"],
     marketplace: ["marketplace"],
@@ -493,12 +494,13 @@ function filterByGenreBucket(releases) {
 }
 
 function renderGenreBucketChips() {
-  const container = $("genreChips");
-  if (!container) return;
-  container.innerHTML = GENRE_BUCKET_DEFS.map(
+  const markup = GENRE_BUCKET_DEFS.map(
     (bucket) =>
       `<button type="button" class="chip${bucket.id === state.genreBucket ? " active" : ""}" data-bucket="${bucket.id}" onclick="selectGenreBucket('${bucket.id}')">${escapeHtml(bucket.label)}</button>`
   ).join("");
+  [$("genreChips"), $("africaGenreChips")].forEach((container) => {
+    if (container) container.innerHTML = markup;
+  });
 }
 
 function renderFormatChips() {
@@ -554,8 +556,6 @@ function renderReleaseCard(release, mine = false) {
     distrokid: "DistroKid"
   }[release.embed_provider];
   const isPreSaveOnly = release.embed_provider === "ditto" || release.embed_provider === "distrokid";
-  const isPurchasableMusic = !["video", "live_performance"].includes(release.type);
-  const isMultiTrackRelease = ["ep", "album", "mixtape", "dj_mix"].includes(release.type);
   const embedBadge = release.content_type === "embed" && embedProviderLabel
     ? `<span class="release-chip-tag">${isPreSaveOnly ? "Pre-Save" : escapeHtml(embedProviderLabel)}</span>`
     : "";
@@ -564,10 +564,10 @@ function renderReleaseCard(release, mine = false) {
   const releaseDate = release.created_at ? new Date(release.created_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }) : "";
 
   const actionStop = "event.stopPropagation();";
-  const cardOnClick = isMultiTrackRelease ? `onclick="openReleaseDetail(${releaseId})"` : "";
+  const cardOnClick = `onclick="openReleaseDetail(${releaseId})"`;
 
   return `
-    <article class="glass release-card compact-release-card" ${cardOnClick} style="${isMultiTrackRelease ? "cursor:pointer;" : ""}">
+    <article class="glass release-card compact-release-card" ${cardOnClick} style="cursor:pointer;">
       <div class="compact-release-main">
         <div class="compact-release-artwork">${artwork}</div>
         <div class="compact-release-copy">
@@ -585,7 +585,6 @@ function renderReleaseCard(release, mine = false) {
         ${isPreSaveOnly ? `<a class="chip" href="${escapeHtml(release.embed_url)}" target="_blank" rel="noopener noreferrer">Pre-Save</a>` : ""}
         <button type="button" class="chip heart-action${release.liked_by_user ? " is-liked" : ""}" aria-label="${release.liked_by_user ? "Unlike" : "Like"} this release" title="${release.liked_by_user ? "Unlike" : "Like"} this release" onclick="${actionStop} likeRelease(${releaseId})">${release.liked_by_user ? "Liked" : "Like"}</button>
         <button class="chip" type="button" onclick="${actionStop} shareRelease(${releaseId})" aria-label="Share release" title="Share release">Share</button>
-        ${isPurchasableMusic ? `<button type="button" class="chip buy-locked" onclick="${actionStop} showBuyComingSoon()" aria-label="Buy locked" title="Purchases coming soon">Buy</button>` : ""}
         <button class="chip" type="button" onclick="${actionStop} showComments(${releaseId})">Comments</button>
         ${mine ? `<button class="chip" type="button" onclick="${actionStop} deleteRelease(${releaseId})">Delete</button>` : ""}
       </div>
@@ -640,12 +639,15 @@ function renderSearchResults(releases, query) {
 }
 
 function renderArtistCard(artist) {
+  const artistName = artist.stage_name || artist.name || "Independent artist";
+  const location = [artist.city, artist.country].filter(Boolean).join(" · ");
+  const metadata = [location, artist.genre].filter(Boolean);
+  const initials = artistName.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
   return `
     <article class="glass artist-card">
-      ${artist.profile_image ? `<img src="${mediaUrl(artist.profile_image)}" alt="${escapeHtml(artist.stage_name)}" />` : ""}
-      <h3>${escapeHtml(artist.stage_name || artist.name)}</h3>
-      <p class="release-meta">${escapeHtml(artist.country || "")}</p>
-      <p class="release-meta">${escapeHtml(artist.genre || "")}</p>
+      ${artist.profile_image ? `<img src="${mediaUrl(artist.profile_image)}" alt="${escapeHtml(artistName)}" loading="lazy" />` : `<div class="artist-card-avatar" aria-hidden="true">${escapeHtml(initials)}</div>`}
+      <h3>${escapeHtml(artistName)}</h3>
+      ${metadata.length ? `<p class="release-meta artist-card-meta">${escapeHtml(metadata.join(" · "))}</p>` : ""}
       <div class="release-actions">
         <button class="chip" onclick="viewArtist('${escapeHtml(artist.artist_slug || artist.slug || "")}')">Profile</button>
         ${state.user && Number(artist.artist_id || artist.id) !== Number(state.user.id) ? (artist.is_following ? `<button class="chip" onclick="openConversation(${artist.artist_id || artist.id})">Message</button>` : `<button class="chip" type="button" disabled title="Follow this artist to send a message">Follow to message</button>`) : ""}
@@ -670,7 +672,7 @@ async function loadReleases(filters = {}) {
     return;
   }
 
-  const filtered = filterByGenreBucket(data.releases);
+  const filtered = filterByGenreBucket(data.releases).filter((release) => !filters.city || release.city === filters.city);
   state.releases = filtered;
   if (filters.q !== undefined) renderSearchResults(filtered, filters.q);
 
@@ -716,7 +718,7 @@ async function loadTrendingReleases(filters = {}) {
     return;
   }
 
-  const filtered = filterByGenreBucket(data.releases);
+  const filtered = filterByGenreBucket(data.releases).filter((release) => !filters.city || release.city === filters.city);
   state.trendingReleases = filtered;
 
   $("trendingGrid").innerHTML =
@@ -746,10 +748,17 @@ function renderTaxonomy(releases) {
   // Genre chips use the standardized GENRE_BUCKET_DEFS taxonomy (rendered once via
   // renderGenreBucketChips) so there is a single genre-filtering system on the page.
   const countries = [...new Set(releases.map((release) => release.country).filter(Boolean))];
+  const cities = [...new Set(releases.map((release) => release.city).filter(Boolean))];
 
   $("countryChips").innerHTML = countries
     .map((country) => `<button class=\"chip\" onclick=\"filterByCountry('${escapeHtml(country)}')\">${escapeHtml(country)}</button>`)
     .join("");
+  const cityContainer = $("cityChips");
+  if (cityContainer) {
+    cityContainer.innerHTML = cities
+      .map((city) => `<button class=\"chip\" onclick=\"filterByCity('${escapeHtml(city)}')\">${escapeHtml(city)}</button>`)
+      .join("") || '<span class="release-meta">Cities will appear as artists add them to their profiles.</span>';
+  }
 }
 
 async function loadMyDashboard() {
@@ -794,7 +803,6 @@ async function loadBeats() {
       <p class="release-meta">${escapeHtml(beat.seller_name)} • ${escapeHtml(beat.genre)} • ${escapeHtml(beat.currency)} ${Number(beat.price).toFixed(2)}</p>
       <p>${escapeHtml(beat.description || "")}</p>
       <audio class="player" controls preload="metadata" src="${mediaUrl(beat.audio_path)}"></audio>
-      <div class="release-actions"><button class="chip buy-locked" type="button" onclick="showBuyComingSoon()">🔒 Buy</button></div>
     </article>
   `).join("") || '<p class="release-meta">No beats published yet.</p>';
 }
@@ -1464,14 +1472,17 @@ function createListeningSessionId() {
 window.openReleaseDetail = async function openReleaseDetail(releaseId) {
   try {
     const match = [...state.releases, ...state.trendingReleases].find((item) => Number(item.id) === Number(releaseId));
-    const data = match ? { release: match } : await api(`/releases/${releaseId}`);
+    const data = match && Array.isArray(match.tracks) ? { release: match } : await api(`/releases/${releaseId}`);
     const release = data.release;
     if (!release) return;
 
     const dialog = document.getElementById("releaseDetailDialog");
     if (!dialog) return;
 
-    const artwork = release.artwork_path ? `<img src="${mediaUrl(release.artwork_path)}" alt="${escapeHtml(release.title)}" style="width:100%;max-height:260px;object-fit:cover;border-radius:12px;" />` : "";
+    const releaseTitle = release.title || "Untitled release";
+    const releaseInitials = String(releaseTitle).split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
+    const artworkFallback = `<div class="release-detail-artwork-fallback"${release.artwork_path ? " hidden" : ""}><span>INDIEWAVE</span><strong>${escapeHtml(releaseInitials || "IW")}</strong><small>${escapeHtml(releaseTypeLabel(release.type))}</small></div>`;
+    const artwork = `<div class="release-detail-artwork">${release.artwork_path ? `<img src="${escapeHtml(mediaUrl(release.artwork_path))}" alt="${escapeHtml(releaseTitle)}" onerror="this.hidden=true;this.nextElementSibling.hidden=false;" />` : ""}${artworkFallback}</div>`;
     const tracks = Array.isArray(release.tracks) && release.tracks.length ? release.tracks : (release.media_audio_path ? [{ id: null, title: release.title, audio_path: release.media_audio_path }] : []);
 
     dialog.innerHTML = `
@@ -1480,22 +1491,21 @@ window.openReleaseDetail = async function openReleaseDetail(releaseId) {
         ${artwork}
         <div>
           <p class="section-kicker">${escapeHtml(releaseTypeLabel(release.type))}</p>
-          <h2>${escapeHtml(release.title || "Untitled release")}</h2>
-          <p class="release-meta">${escapeHtml(release.stage_name || "Unknown Artist")} • ${escapeHtml(release.genre || "")}${release.genre && release.country ? " • " : ""}${escapeHtml(release.country || "")}</p>
+          <h2>${escapeHtml(releaseTitle)}</h2>
+          <p class="release-meta">${release.artist_slug ? `<button type="button" class="release-detail-artist-link" onclick="event.stopPropagation(); viewArtist('${escapeHtml(release.artist_slug)}')">${escapeHtml(release.stage_name || "Unknown Artist")}</button>` : escapeHtml(release.stage_name || "Unknown Artist")} • ${escapeHtml(release.genre || "")}${release.genre && release.country ? " • " : ""}${escapeHtml(release.country || "")}</p>
         </div>
-        <div style="display:grid;gap:10px;">
+        <div class="release-detail-track-list">
           ${tracks.map((track, index) => `
-            <div style="display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:10px;border:1px solid rgba(255,255,255,0.08);border-radius:10px;background:rgba(255,255,255,0.02);">
-              <span class="release-meta" style="min-width:30px;">#${index + 1}</span>
-              <div>
+            <div class="release-detail-track">
+              <span class="release-meta release-detail-track-index">#${index + 1}</span>
+              <div class="release-detail-track-copy">
                 <strong>${escapeHtml(track.title || buildReleaseTrackLabel(release, index))}</strong>
                 <span id="release-track-play-count-${release.id}-${track.id || `fallback-${index}`}" class="release-meta" data-play-count="${Number(track.listen_count || 0)}">Plays: ${Number(track.listen_count || 0)}</span>
               </div>
-              <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+              <div class="release-detail-track-actions">
                 <button type="button" class="chip" onclick="event.stopPropagation(); playTrackFromRelease(${release.id}, ${index})">Play</button>
                 <button type="button" class="chip heart-action" aria-label="Like this track" title="Like this track" data-track-like="${release.id}-${index}" onclick="event.stopPropagation(); likeTrackFromRelease(${release.id}, ${index})">♡</button>
                 <button type="button" class="chip" onclick="event.stopPropagation(); shareTrackFromRelease(${release.id}, ${index})" aria-label="Share track" title="Share track">↗ Share</button>
-                ${!["video", "live_performance"].includes(release.type) ? `<button type="button" class="chip buy-locked" onclick="event.stopPropagation(); showBuyComingSoon()" aria-label="Buy locked" title="Purchases coming soon">🔒 Buy</button>` : ""}
                 <button type="button" class="chip" onclick="event.stopPropagation(); showTrackComments(${release.id}, ${index})">Comments</button>
               </div>
             </div>
@@ -1590,18 +1600,7 @@ window.shareTrackFromRelease = async function shareTrackFromRelease(releaseId, t
     url: url.toString()
   };
 
-  try {
-    if (navigator.share) await navigator.share(shareData);
-    else throw new Error("native share unavailable");
-  } catch (error) {
-    if (error.name === "AbortError") return;
-    try {
-      await navigator.clipboard.writeText(url.toString());
-      notify("Track link copied");
-    } catch (copyError) {
-      window.prompt("Copy this track link", url.toString());
-    }
-  }
+  await window.shareIndieWaveUrl({ ...shareData, contentLabel: "this track" });
 };
 
 window.downloadTrackFromRelease = async function downloadTrackFromRelease(releaseId, trackIndex = 0) {
@@ -1634,8 +1633,32 @@ window.downloadRelease = async function downloadRelease(releaseId) {
   }
 };
 
-window.showBuyComingSoon = function showBuyComingSoon() {
-  notify("Purchases are coming soon. Payment integration is not yet available.");
+window.shareIndieWaveUrl = async function shareIndieWaveUrl({ url, title, text, contentLabel = "this IndieWave link" }) {
+  const shareData = { title, text, url };
+
+  if (navigator.share) {
+    try {
+      await navigator.share(shareData);
+      return "native";
+    } catch (error) {
+      if (error.name === "AbortError") return "cancelled";
+    }
+  }
+
+  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(`${text || title}\n${url}`)}`;
+  if (window.confirm(`Open WhatsApp to share ${contentLabel}?`)) {
+    window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+    return "whatsapp";
+  }
+
+  try {
+    await navigator.clipboard.writeText(url);
+    notify("Link copied");
+    return "clipboard";
+  } catch (error) {
+    window.prompt(`Copy ${contentLabel}`, url);
+    return "prompt";
+  }
 };
 
 window.shareRelease = async function shareRelease(releaseId) {
@@ -1661,24 +1684,7 @@ window.shareRelease = async function shareRelease(releaseId) {
     url: url.toString()
   };
 
-  try {
-    if (navigator.share) await navigator.share(shareData);
-    else throw new Error("native share unavailable");
-  } catch (error) {
-    if (error.name === "AbortError") return;
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(`${shareData.title} — ${shareData.url}`)}`;
-    const shouldUseWhatsapp = window.confirm("Share this IndieWave release with WhatsApp?");
-    if (shouldUseWhatsapp) {
-      window.open(whatsappUrl, "_blank", "noopener,noreferrer");
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(url.toString());
-      notify("Release link copied");
-    } catch (copyError) {
-      window.prompt("Copy this release link", url.toString());
-    }
-  }
+  await window.shareIndieWaveUrl({ ...shareData, contentLabel: "this release" });
 };
 
 async function openSharedRelease() {
@@ -1851,10 +1857,43 @@ window.filterByCountry = async function filterByCountry(country) {
   await loadTrendingReleases({ country });
 };
 
+window.filterByCity = async function filterByCity(city) {
+  await loadReleases({ city });
+  await loadTrendingReleases({ city });
+};
+
 window.viewArtist = async function viewArtist(slug) {
   if (!slug) return;
-  const profile = await api(`/artists/${slug}`);
-  notify(`Artist: ${profile.artist.stage_name}\nFollowers: ${profile.stats.followers}\nReleases: ${profile.stats.releases}`);
+  try {
+    const profile = await api(`/artists/${slug}`);
+    const artist = profile.artist || {};
+    const artistName = artist.stage_name || artist.name || "Independent artist";
+    const location = [artist.city, artist.country].filter(Boolean).join(" · ");
+    const metadata = [location, artist.genre].filter(Boolean);
+    const initials = artistName.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
+    const releases = Array.isArray(profile.releases) ? profile.releases : [];
+    state.releases = [...releases, ...state.releases.filter((release) => !releases.some((item) => Number(item.id) === Number(release.id)))];
+    $("artistProfile").innerHTML = `
+      <div class="artist-profile-hero glass">
+        ${artist.profile_image ? `<img src="${mediaUrl(artist.profile_image)}" alt="${escapeHtml(artistName)}" />` : `<div class="artist-profile-avatar" aria-hidden="true">${escapeHtml(initials)}</div>`}
+        <div class="artist-profile-copy">
+          <p class="section-kicker">IndieWave artist</p>
+          <h1>${escapeHtml(artistName)}</h1>
+          ${metadata.length ? `<p class="artist-profile-meta">${escapeHtml(metadata.join(" · "))}</p>` : ""}
+          ${artist.bio ? `<p class="artist-profile-bio">${escapeHtml(artist.bio)}</p>` : ""}
+          <div class="artist-profile-stats">
+            ${profile.stats?.followers != null ? `<span>${escapeHtml(String(profile.stats.followers))} followers</span>` : ""}
+            ${profile.stats?.releases != null ? `<span>${escapeHtml(String(profile.stats.releases))} releases</span>` : ""}
+          </div>
+        </div>
+      </div>
+      <div class="section-title-row artist-profile-heading"><div><p class="section-kicker">Artist catalogue</p><h2>Releases</h2></div></div>
+      <div class="release-grid">${releases.length ? releases.map((release) => renderReleaseCard(release)).join("") : '<div class="empty-state"><p class="empty-state-title">No releases yet.</p><p class="empty-state-text">This artist has not published music on IndieWave yet.</p></div>'}</div>
+    `;
+    setAppView("artistProfile");
+  } catch (error) {
+    notify(error.message || "Artist profile unavailable");
+  }
 };
 
 window.openReportForRelease = function openReportForRelease(releaseId) {

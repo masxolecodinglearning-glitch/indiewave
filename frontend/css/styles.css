@@ -686,6 +686,83 @@ textarea::placeholder {
   transition: transform 0.35s ease;
 }
 
+.artist-card-avatar {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  margin-bottom: 0.6rem;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(255, 47, 143, 0.7), rgba(197, 5, 95, 0.25));
+  color: var(--white);
+  font-family: "Syne", sans-serif;
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+
+.artist-card-meta {
+  min-height: 1.35rem;
+}
+
+.artist-profile-hero {
+  display: grid;
+  grid-template-columns: minmax(160px, 240px) minmax(0, 1fr);
+  gap: 1.4rem;
+  align-items: center;
+  padding: 1.2rem;
+}
+
+.artist-profile-hero img,
+.artist-profile-avatar {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 16px;
+}
+
+.artist-profile-avatar {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, rgba(255, 47, 143, 0.7), rgba(197, 5, 95, 0.25));
+  color: var(--white);
+  font-family: "Syne", sans-serif;
+  font-size: clamp(2rem, 6vw, 4rem);
+  font-weight: 800;
+}
+
+.artist-profile-copy {
+  min-width: 0;
+}
+
+.artist-profile-copy h1 {
+  overflow-wrap: anywhere;
+  font-size: clamp(2rem, 5vw, 3.8rem);
+}
+
+.artist-profile-meta,
+.artist-profile-bio {
+  color: var(--muted);
+}
+
+.artist-profile-bio {
+  max-width: 62ch;
+  white-space: pre-wrap;
+}
+
+.artist-profile-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  color: var(--pink-soft);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.artist-profile-heading {
+  margin-top: 1.5rem;
+}
+
 .release-card:hover img,
 .artist-card:hover img {
   transform: scale(1.03);
@@ -746,16 +823,22 @@ textarea::placeholder {
 .compact-release-title-row {
   display: flex;
   gap: 0.45rem;
-  align-items: center;
-  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
   margin-bottom: 0.15rem;
 }
 
 .compact-release-card h3 {
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-size: 1rem;
   line-height: 1.2;
   margin: 0;
   color: var(--white);
+}
+
+.compact-release-title-row h3 {
+  flex: 1 1 12rem;
 }
 
 .release-chip-tag {
@@ -781,6 +864,7 @@ textarea::placeholder {
 
 .compact-actions {
   margin-top: 0;
+  min-width: 0;
 }
 
 .library-toolbar {
@@ -1171,6 +1255,49 @@ body {
 .now-playing-progress > div { justify-content: space-between; color: var(--muted); font-size: 0.78rem; }
 .now-playing-controls { display: flex; justify-content: center; gap: 0.55rem; }
 .now-playing-controls .btn { width: auto; min-height: 44px; }
+.release-detail-track-list { display: grid; gap: 0.6rem; }
+.release-detail-track {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.6rem;
+  align-items: center;
+  min-width: 0;
+  padding: 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.release-detail-track-copy { min-width: 0; }
+.release-detail-track-copy strong { display: block; overflow-wrap: anywhere; }
+.release-detail-track-copy .release-meta { display: block; }
+.release-detail-track-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.35rem; min-width: 0; }
+.release-detail-artist-link { padding: 0; border: 0; background: none; color: var(--pink-soft); font: inherit; font-weight: 700; cursor: pointer; }
+.release-detail-artist-link:hover,
+.release-detail-artist-link:focus-visible { color: var(--white); text-decoration: underline; }
+.release-detail-artwork {
+  width: 100%;
+  max-height: 260px;
+  aspect-ratio: 1.8 / 1;
+  overflow: hidden;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.release-detail-artwork img,
+.release-detail-artwork-fallback { width: 100%; height: 100%; }
+.release-detail-artwork img { display: block; object-fit: cover; }
+.release-detail-artwork-fallback {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 0.25rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, rgba(255, 47, 143, 0.34), rgba(9, 9, 11, 0.96));
+  color: var(--white);
+  text-align: center;
+}
+.release-detail-artwork-fallback span,
+.release-detail-artwork-fallback small { color: var(--pink-soft); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.12em; }
+.release-detail-artwork-fallback strong { font-family: "Syne", sans-serif; font-size: clamp(2rem, 10vw, 4rem); }
 
 .hidden {
   display: none !important;
@@ -2263,7 +2390,7 @@ dialog::backdrop {
 
 @media (max-width: 980px) {
   .topbar {
-    flex-wrap: wrap;
+    min-height: 52px;
     justify-content: space-between;
   }
 
@@ -2274,16 +2401,31 @@ dialog::backdrop {
 
   .topnav {
     display: none;
-    width: 100%;
-    order: 4;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.15);
-    padding-top: 0.65rem;
+    position: fixed;
+    top: 4.25rem;
+    right: 0.6rem;
+    width: min(300px, calc(100vw - 1.2rem));
+    max-height: calc(100vh - 5rem);
+    overflow-y: auto;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.65rem;
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    background: rgba(9, 9, 11, 0.97);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(18px);
   }
 
   .topnav.open {
     display: flex;
+    animation: drawer-in 0.18s ease both;
+  }
+
+  .topnav a {
+    width: 100%;
+    padding: 0.72rem 0.8rem;
+    border-radius: 9px;
   }
 
   .topnav #logoutBtn {
@@ -2294,6 +2436,12 @@ dialog::backdrop {
 
   .top-actions {
     margin-left: auto;
+  }
+
+  .top-actions .btn {
+    width: auto;
+    min-height: 40px;
+    padding: 0.5rem 0.7rem;
   }
 
   .hero {
@@ -2423,6 +2571,10 @@ dialog::backdrop {
 
   .btn {
     width: 100%;
+  }
+
+  .top-actions .btn {
+    width: auto;
   }
 
   .hero-cta-row {
@@ -2570,6 +2722,15 @@ dialog::backdrop {
 }
 
 @media (max-width: 500px) {
+  .release-detail-track {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .release-detail-track-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+
   .release-type-selector {
     flex-direction: column;
     gap: 0.5rem;

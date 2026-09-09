@@ -19,15 +19,19 @@
     <div class="noise"></div>
     <header class="topbar glass">
       <a class="brand" href="#home">IndieWave</a>
-      <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">Menu</button>
+      <button class="nav-toggle" aria-controls="topnavMenu" aria-label="Toggle navigation" aria-expanded="false">Menu</button>
       <nav class="topnav" id="topnavMenu">
         <a href="#home">Home</a>
         <a href="#discover">Music</a>
+        <a href="#library" data-app-view="library">Library</a>
         <a href="#artists">Artists</a>
         <a href="#genres">Genres</a>
         <a href="#videos">Videos</a>
         <a href="#marketplace">Marketplace</a>
         <a href="#dashboard">Upload</a>
+        <a href="#messages" data-app-view="messages">Messages</a>
+        <a href="#notifications" data-app-view="notifications">Notifications</a>
+        <a href="#dashboard" data-app-view="dashboard">Artist Workspace</a>
         <a href="#indieWaveAi">IndieWave AI</a>
         <a href="#artistGrowth" data-app-view="artistGrowth">Artist Growth</a>
       </nav>
@@ -88,32 +92,30 @@
           <div id="searchResults" class="search-results" aria-live="polite"></div>
         </div>
 
-        <aside class="hero-panel glass-dark">
-          <h2>Now Playing</h2>
-          <p id="nowPlayingTitle">No release selected yet</p>
-          <div class="visualizer-container">
-            <div class="visualizer-bars">
-              <div class="bar"></div>
-              <div class="bar"></div>
-              <div class="bar"></div>
-              <div class="bar"></div>
-              <div class="bar"></div>
-              <div class="bar"></div>
-              <div class="bar"></div>
-              <div class="bar"></div>
-              <div class="bar"></div>
-              <div class="bar"></div>
-              <div class="bar"></div>
-              <div class="bar"></div>
-            </div>
+        <aside class="hero-panel glass-dark" aria-label="IndieWave product preview">
+          <div class="hero-motion" aria-hidden="true">
+            <div class="hero-motion-orbit hero-motion-orbit-one"></div>
+            <div class="hero-motion-orbit hero-motion-orbit-two"></div>
+            <div class="hero-motion-artwork">IW</div>
+            <div class="hero-motion-wave"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
           </div>
-          <div class="player-controls-row">
-            <button id="prevTrackBtn" class="btn btn-outline player-btn" aria-label="Previous track">Previous</button>
-            <button id="nextTrackBtn" class="btn btn-outline player-btn" aria-label="Next track">Next</button>
+          <div class="hero-motion-copy">
+            <p class="section-kicker">The independent music network</p>
+            <h2>Upload. Discover. Connect. Grow.</h2>
+            <p class="hero-panel-note">A focused home for African independent music and the people moving it forward.</p>
+          </div>
+          <div class="hero-player-preview">
+            <strong id="nowPlayingTitle">No release selected yet</strong>
+            <div class="visualizer-container">
+              <div class="visualizer-bars"><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div></div>
+            </div>
+            <div class="player-controls-row">
+              <button id="prevTrackBtn" class="btn btn-outline player-btn" aria-label="Previous track">Previous</button>
+              <button id="nextTrackBtn" class="btn btn-outline player-btn" aria-label="Next track">Next</button>
+            </div>
           </div>
           <audio id="musicPlayer" class="player" preload="metadata"></audio>
           <video id="videoPlayer" controls class="player hidden"></video>
-          <p class="hero-panel-note">Select any release card below to start playback.</p>
         </aside>
       </section>
 
@@ -220,6 +222,8 @@
         <div id="releaseGrid" class="release-grid release-carousel"></div>
         <span id="artists"></span>
       </section>
+
+      <section id="artistProfile" class="section secondary-view-section hidden"></section>
 
       <section id="library" class="section secondary-view-section">
         <div class="section-title-row">
@@ -329,10 +333,15 @@
             <h2>Explore Africa</h2>
           </div>
         </div>
-        <div id="countryChips" class="chips-wrap"></div>
+        <p class="release-meta">Discover independent music by the places and sounds represented in the catalogue.</p>
+        <div class="explore-africa-filters">
+          <div><span class="filter-label">Country</span><div id="countryChips" class="chips-wrap"></div></div>
+          <div><span class="filter-label">City</span><div id="cityChips" class="chips-wrap"></div></div>
+          <div><span class="filter-label">Genre</span><div id="africaGenreChips" class="chips-wrap"></div></div>
+        </div>
       </section>
 
-      <section class="section home-cta-band glass">
+      <section id="artistCta" class="section home-cta-band glass">
         <div class="section-title-row">
           <div>
             <p class="section-kicker">Are You An Artist?</p>
