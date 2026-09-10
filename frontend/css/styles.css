@@ -276,26 +276,47 @@ dialog {
 
 .upload-status {
   margin: 0.5rem 0 0.9rem;
-  padding: 0.75rem 0.9rem;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  padding: 0.8rem 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(11, 15, 28, 0.7);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .upload-status-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
+  gap: 0.75rem;
+  margin-bottom: 0.45rem;
   font-size: 0.92rem;
   font-weight: 700;
 }
 
+.upload-status-file {
+  margin-bottom: 0.5rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.upload-status-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.45rem;
+}
+
 .upload-status small {
   display: block;
-  margin-top: 0.45rem;
   color: var(--muted);
+}
+
+.upload-status-progress {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .upload-status-success {
@@ -311,6 +332,17 @@ dialog {
 .upload-status-processing {
   border-color: rgba(255, 149, 89, 0.8);
   background: rgba(255, 149, 89, 0.08);
+}
+
+.upload-status-retry {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text, #f7f7fb);
+  border-radius: 999px;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .upload-status-bar {
@@ -337,6 +369,28 @@ dialog {
 
 .upload-status-bar-fill.complete {
   width: 100%;
+}
+
+@media (max-width: 420px) {
+  .upload-status {
+    padding: 0.7rem 0.75rem;
+  }
+
+  .upload-status-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .upload-status-meta {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .upload-status-progress {
+    align-self: flex-end;
+  }
 }
 
 @keyframes uploadPulse {

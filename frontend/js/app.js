@@ -49,34 +49,100 @@ function notify(message) {
   window.alert(message);
 }
 
-function setUploadStatus(statusText, detail = "") {
+function setUploadStatus(statusText, detail = "", options = {}) {
   const status = $("releaseUploadStatus");
   const statusTextEl = $("releaseUploadStatusText");
   const statusBar = $("releaseUploadStatusBar");
   const statusDetail = $("releaseUploadStatusDetail");
+  const statusFile = $("releaseUploadFile");
+  const statusProgressText = $("releaseUploadProgressText");
+  const retryButton = $("releaseUploadRetryBtn");
 
-  if (!status || !statusTextEl || !statusBar || !statusDetail) return;
+  if (!status || !statusTextEl || !statusBar || !statusDetail || !statusFile || !statusProgressText || !retryButton) return;
+
+  const isUpload = /loading|starting.*upload|uploading/i.test(statusText);
+  const isProcessing = /processing/i.test(statusText);
+  const isComplete = /successfully|completed/i.test(statusText);
+  const isFailed = /failed/i.test(statusText);
+  const numericPercent = Number.isFinite(options.percent) ? Math.max(0, Math.min(100, options.percent)) : null;
+
   status.classList.remove("hidden");
   statusTextEl.textContent = statusText;
-  statusDetail.textContent = detail || "";
-
-  const isUpload = statusText === "Uploading...";
-  const isProcessing = statusText === "Processing...";
-  const isComplete = statusText === "Completed";
-  const isFailed = statusText === "Failed";
-
+  statusFile.textContent = detail || "Preparing your upload...";
+  statusDetail.textContent = detail || "Preparing your upload...";
+  statusProgressText.textContent = numericPercent === null ? "" : `${Math.round(numericPercent)}%`;
+  statusBar.classList.toggle("indeterminate", Boolean(options.indeterminate));
+  statusBar.classList.toggle("complete", isComplete || isFailed || Boolean(options.complete));
   status.classList.toggle("upload-status-success", isComplete);
   status.classList.toggle("upload-status-error", isFailed);
   status.classList.toggle("upload-status-processing", isProcessing);
-  statusBar.classList.toggle("indeterminate", isUpload || isProcessing);
-  statusBar.classList.toggle("complete", isComplete || isFailed);
+  retryButton.classList.toggle("hidden", !isFailed);
 
-  if (isUpload || isProcessing) {
+  if (options.indeterminate) {
     statusBar.style.width = "70%";
     return;
   }
 
+  if (numericPercent !== null) {
+    statusBar.style.width = `${numericPercent}%`;
+    return;
+  }
+
+  if (isUpload || isProcessing) {
+    statusBar.style.width = "15%";
+    return;
+  }
+
   statusBar.style.width = "100%";
+}
+
+function getReleaseUploadTarget(form) {
+  const audioFiles = Array.from(form.querySelector('input[name="audio"]')?.files || []);
+  const videoFiles = Array.from(form.querySelector('input[name="video"]')?.files || []);
+  const fileName = audioFiles[0]?.name || videoFiles[0]?.name || "Media";
+
+  return {
+    hasAudio: audioFiles.length > 0,
+    hasVideo: videoFiles.length > 0,
+    fileName,
+    audioFiles,
+    videoFiles
+  };
+}
+
+function uploadFormDataWithProgress(path, formData, { onProgress, token } = {}) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API_BASE}${path}`, true);
+    xhr.responseType = "json";
+    if (token) {
+      xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    }
+
+    xhr.upload.addEventListener("progress", (event) => {
+      if (!event.lengthComputable) {
+        if (onProgress) onProgress(null);
+        return;
+      }
+
+      const percent = Math.max(0, Math.min(100, (event.loaded / event.total) * 100));
+      if (onProgress) onProgress(percent);
+    });
+
+    xhr.addEventListener("load", () => {
+      const payload = xhr.response || {};
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(payload);
+        return;
+      }
+
+      reject(new Error(payload?.message || "Upload failed"));
+    });
+
+    xhr.addEventListener("error", () => reject(new Error("Network error while uploading")));
+    xhr.addEventListener("abort", () => reject(new Error("Upload cancelled")));
+    xhr.send(formData);
+  });
 }
 
 function showUploadNotification(kind, title, message) {
@@ -1001,22 +1067,38 @@ async function uploadRelease(form) {
     notify("A valid non-negative price is required.");
     return null;
   }
+
   syncReleaseTrackTitlesIntoForm(form);
   const data = new FormData(form);
-  setUploadStatus("Uploading...", "Uploading your media...");
+  const uploadTarget = getReleaseUploadTarget(form);
+  const isSongUpload = uploadTarget.hasAudio;
+  const statusPrefix = isSongUpload ? "Song" : "Video";
+  const loadingStatus = isSongUpload ? "⌛ Song loading..." : "⏳ Video loading...";
+  const processingStatus = isSongUpload ? "⌛ Song loading..." : "⏳ Video loading...";
+  const successStatus = isSongUpload ? "✅ Song uploaded successfully" : "✅ Video uploaded successfully";
+  const failedStatus = isSongUpload ? "❌ Song upload failed" : "❌ Video upload failed";
+
+  setUploadStatus(loadingStatus, uploadTarget.fileName, { indeterminate: true });
 
   try {
-    const response = await api("/releases", {
-      method: "POST",
-      body: data
+    const response = await uploadFormDataWithProgress("/releases", data, {
+      token: state.token,
+      onProgress: (percent) => {
+        if (percent === null) {
+          setUploadStatus(loadingStatus, uploadTarget.fileName, { indeterminate: true });
+          return;
+        }
+
+        setUploadStatus(loadingStatus, uploadTarget.fileName, { percent });
+      }
     });
 
-    setUploadStatus("Processing...", "Processing your upload...");
-    setUploadStatus("Completed", "Upload complete");
+    setUploadStatus(processingStatus, uploadTarget.fileName, { indeterminate: true });
+    setUploadStatus(successStatus, uploadTarget.fileName, { percent: 100, complete: true });
     showUploadNotification(
       "success",
       "✓ Upload complete",
-      response?.release?.title ? `Your release “${response.release.title}” has been uploaded successfully.` : "Your upload has been completed successfully."
+      response?.release?.title ? `Your release “${response.release.title}” has been uploaded successfully.` : `${statusPrefix} uploaded successfully.`
     );
 
     await loadReleases();
@@ -1031,7 +1113,7 @@ async function uploadRelease(form) {
       ? error.message
       : "Please try again.";
 
-    setUploadStatus("Failed", safeMessage);
+    setUploadStatus(failedStatus, safeMessage, { percent: 100, complete: true });
     showUploadNotification("error", "✕ Upload failed", safeMessage);
     return null;
   }
@@ -2176,12 +2258,21 @@ function wireEvents() {
     }
   });
 
-  $("releaseForm").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const uploadResult = await uploadRelease(event.target);
+  const releaseForm = $("releaseForm");
+  const handleReleaseUploadSubmit = async () => {
+    const uploadResult = await uploadRelease(releaseForm);
     if (uploadResult) {
       await loadTrendingReleases();
     }
+  };
+
+  releaseForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await handleReleaseUploadSubmit();
+  });
+
+  $("releaseUploadRetryBtn")?.addEventListener("click", async () => {
+    await handleReleaseUploadSubmit();
   });
 
   $("beatForm")?.addEventListener("submit", async (event) => {

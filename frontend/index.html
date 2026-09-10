@@ -696,11 +696,16 @@
             <div id="releaseUploadStatus" class="upload-status hidden" aria-live="polite" aria-atomic="true">
               <div class="upload-status-header">
                 <span id="releaseUploadStatusText">Uploading...</span>
+                <button type="button" id="releaseUploadRetryBtn" class="upload-status-retry hidden">Try Again</button>
               </div>
+              <div id="releaseUploadFile" class="upload-status-file">Preparing your upload...</div>
               <div class="upload-status-bar" aria-hidden="true">
                 <span id="releaseUploadStatusBar" class="upload-status-bar-fill"></span>
               </div>
-              <small id="releaseUploadStatusDetail">Preparing your upload...</small>
+              <div class="upload-status-meta">
+                <small id="releaseUploadStatusDetail">Preparing your upload...</small>
+                <small id="releaseUploadProgressText" class="upload-status-progress">0%</small>
+              </div>
             </div>
             <button type="submit" class="btn btn-primary">Upload</button>
           </form>
